@@ -1,6 +1,8 @@
 import numpy as np
 import modern_robotics as mr
 
+from se3_matrix_exponential import chop_small
+
 
 def unit(v):
     """Return a normalized copy of a vector."""
@@ -38,6 +40,7 @@ p_a_s = np.array([0.0, 0.0, 1.0])
 p_b_s = np.array([0.0, 2.0, 0.0])
 
 T_sa = mr.RpToTrans(R_sa, p_a_s)
+T_as = mr.TransInv(T_sa)
 T_sb = mr.RpToTrans(R_sb, p_b_s)
 
 # Relative transform of frame {b} expressed in frame {a}
@@ -85,42 +88,78 @@ Ad_Tsb = mr.Adjoint(T_sb)
 twist_b = Ad_Tsb @ twist_s
 
 Ad_Tsa = mr.Adjoint(T_sa)
-twist_a = Ad_Tsa @ twist_s
+Ad_Tas = mr.Adjoint(T_as)
+twist_a = Ad_Tas @ twist_s
 
-print("Ad_Tsa =\n", Ad_Tsa)
 print("twist_a =\n", twist_a)
 
-print("Ad_Tsb =\n", Ad_Tsb)
-print("twist_b =\n", twist_b)
+Wrench_b = np.array([1,0,0,2,1,0])
 
-# question 8
+Ad_Tsb = mr.Adjoint(T_sb)
 
-twist_b = np.array([3,2,1,-1,-2,-3])
-Ad_Tbs = mr.Adjoint(T_bs)
-twist_s = Ad_Tbs @ twist_b
+transposed_Ad_Tsb = Ad_Tsb.transpose()
 
-print("Ad_Tbs =\n", Ad_Tbs)
-print("twist_s =\n", twist_s)
+Wrench_s = transposed_Ad_Tsb @ Wrench_b
+
+print("Wrench_s =\n", Wrench_s)
+
+# question 11: inverse of T via TransInv (SE(3): T^{-1} = [R^T, -R^T p; 0 0 0 1])
+T = np.array(
+    [
+        [0.0, -1.0, 0.0, 3.0],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
+T_inv = mr.TransInv(T)
+print("T =\n", T)
+print("TransInv(T) =\n", T_inv)
+
+# question 12: VecTose3
+
+twist_question_12 = np.array([1,0,0,0,2,3])
+
+se3_question_12 = mr.VecTose3(twist_question_12)
+
+print("VecTose3(twist_question_12) =\n", se3_question_12)
 
 
-# question 9
-omega_theta_non_skewed = np.array([0,1,2])
-velocity_non_skewed = np.array([[3,0,0]])
+# question 13: screwToAxis
 
-velocity_skewed_transposed = velocity_non_skewed.transpose()
+s_hat_question_13 = np.array([1,0,0])
+p_question_13 = np.array([0,0,2])
+pitch_question_13 = 1
 
-S_theta_non_skewed = np.hstack((omega_theta_non_skewed, velocity_non_skewed))
+s_question_13 = mr.ScrewToAxis(p_question_13, s_hat_question_13, pitch_question_13)
 
-omega_theta_skewed = mr.VecToso3(omega_theta_non_skewed)
+print("screwToAxis(p_question_13, s_hat_question_13, pitch_question_13) =\n", s_question_13)
 
-print("omega_theta_skewed =\n", omega_theta_skewed)
+# question 14: T = exp([S]θ) via MatrixExp6 (exponential coordinates in se(3))
+# [S]θ has [ω]θ in the 3x3 block (here ω = [0,0,1], θ = π/2) and last column vθ.
+S_theta_q14 = np.array(
+    [
+        [0.0, -np.pi / 2.0, 0.0, 3.0 * np.pi / 4.0],
+        [np.pi / 2.0, 0.0, 0.0, -3.0 * np.pi / 4.0],
+        [0.0, 0.0, 0.0, 1.0],
+        [0.0, 0.0, 0.0, 0.0],
+    ]
+)
+T_q14 = chop_small(mr.MatrixExp6(S_theta_q14))
+print("[S]*theta (question 14) =\n", S_theta_q14)
+print("MatrixExp6([S]*theta) = T =\n", T_q14)
 
-print("velocity_non_skewed.transpose() =\n", velocity_non_skewed.transpose())
+# question 15: matrix logarithm [S]*theta = MatrixLog6(T) in se(3)
+T_q15 = np.array(
+    [
+        [0.0, -1.0, 0.0, 3.0],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
+S_theta_q15 = chop_small(mr.MatrixLog6(T_q15))
+print("T (question 15) =\n", T_q15)
+print("MatrixLog6(T) = [S]*theta =\n", S_theta_q15)
 
-S_skewed_theta = np.vstack((np.hstack((omega_theta_skewed, velocity_non_skewed.transpose())), np.zeros((1,4))))
-
-print("S_skewed_theta =\n", S_skewed_theta)
-
-exponential_theta = mr.MatrixExp6(S_skewed_theta)
-
-print("exponential_theta =\n", exponential_theta)
+print("twist_a =\n", twist_a)
