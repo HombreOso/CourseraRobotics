@@ -57,7 +57,7 @@ def _fmt_scalar(x, array_dtype, precision):
     return f"{xf:.{precision}g}"
 
 
-def pprint_np(label, arr, precision=8):
+def pprint_np(arr, label="", precision=8):
     """Print  label = <compact array>  on a single line."""
     print(f"{label} = {format_numpy_compact(arr, precision)}")
 
@@ -77,7 +77,7 @@ link_length_unit*(1.0 + math.sqrt(3.0) + 1.0), \
 link_length_unit*(-1.0 + math.sqrt(3.0) + 2.0)])
 
 M[0:3, 3] = p_s_0
-pprint_np("M", M)
+pprint_np(label="M", arr=M)
 
 # question 2:
 
@@ -86,37 +86,48 @@ pprint_np("M", M)
 link_length_unit = 1
 
 # question 2:
-s3 = np.array([0, 1, 0])
-q3 = np.array([link_length_unit*(1+math.sqrt(3)), 0, 1])
-v3 = np.cross(q3, s3)
 
-screw_axis_3 = np.array([s3, v3])
+s1 = np.array([0, 0, 1])
+q1 = np.array([link_length_unit, 0, 0])
+v1 = np.cross(q1, s1)
+screw_axis_1 = np.concatenate([s1, v1])
+
+s2 = np.array([0, 1, 0])
+q2 = np.array([link_length_unit, 0, 0])
+v2 = np.cross(q2, s2)
+screw_axis_2 = np.concatenate([s2, v2])
+
+s3 = np.array([0, 1, 0])
+q3 = np.array([link_length_unit*(1+math.sqrt(3)), 0, -1])
+v3 = np.cross(q3, s3)
+screw_axis_3 = np.concatenate([s3, v3])
 
 s4 = np.array([0, 1, 0])
 q4 = np.array([link_length_unit*(math.sqrt(3)+2), 0, link_length_unit*(math.sqrt(3)-1)])
 v4 = np.cross(q4, s4)
+screw_axis_4 = np.concatenate([s4, v4])
 
 s5 = np.array([0, 0, 0])
 v5 = np.array([0, 0, 1])
-screw_axis_5 = np.array([s5, v5])
+screw_axis_5 = np.concatenate([s5, v5])
 
 s6 = np.array([0, 0, 1])
 q6 = np.array([link_length_unit*(math.sqrt(3)+2), 0, link_length_unit*(math.sqrt(3)-1+2)])
 v6 = np.cross(q6, s6)
-screw_axis_6 = np.array([s6, v6])
+screw_axis_6 = np.concatenate([s6, v6])
 
 joint_angles_config_question_3 = np.array([-math.pi/2, math.pi/2, math.pi/3, -math.pi/4, 1, math.pi/6])
 
 
 
-pprint_np("screw_axis_1", pprint_np(screw_axis_1))  
-pprint_np("screw_axis_2", pprint_np(screw_axis_2))
-pprint_np("screw_axis_3", pprint_np(screw_axis_3))
-pprint_np("screw_axis_4", pprint_np(screw_axis_4))
-pprint_np("screw_axis_5", pprint_np(screw_axis_5))
-pprint_np("screw_axis_6", pprint_np(screw_axis_6))
+pprint_np(label="screw_axis_1", arr=screw_axis_1)  
+pprint_np(label="screw_axis_2", arr=screw_axis_2)
+pprint_np(label="screw_axis_3", arr=screw_axis_3)
+pprint_np(label="screw_axis_4", arr=screw_axis_4)
+pprint_np(label="screw_axis_5", arr=screw_axis_5)
+pprint_np(label="screw_axis_6", arr=screw_axis_6)
 
-Slist = np.row_stack(
+Slist = np.column_stack(
     [
         screw_axis_1,
         screw_axis_2,
@@ -125,17 +136,17 @@ Slist = np.row_stack(
         screw_axis_5,
         screw_axis_6,
     ]
-)   
+)
 
-pprint_np("Slist", pprint_np(Slist))
+pprint_np(label="Slist", arr=Slist)
 
 T_question_2 = mr.FKinSpace(M, Slist, joint_angles_config_question_3)
 
-pprint_np("T_question_2", pprint_np(T_question_2))
+pprint_np(label="T_question_2", arr=T_question_2)
 
 adjoint_M_inverse = mr.Adjoint(mr.TransInv(M))
 
-pprint_np("adjoint_M_inverse", pprint_np(adjoint_M_inverse))
+pprint_np(label="adjoint_M_inverse", arr=adjoint_M_inverse)
 
 body_screw_axis_1 = adjoint_M_inverse @ screw_axis_1
 body_screw_axis_2 = adjoint_M_inverse @ screw_axis_2
@@ -144,14 +155,14 @@ body_screw_axis_4 = adjoint_M_inverse @ screw_axis_4
 body_screw_axis_5 = adjoint_M_inverse @ screw_axis_5
 body_screw_axis_6 = adjoint_M_inverse @ screw_axis_6
 
-pprint_np("body_screw_axis_1", pprint_np(body_screw_axis_1))
-pprint_np("body_screw_axis_2", pprint_np(body_screw_axis_2))
-pprint_np("body_screw_axis_3", pprint_np(body_screw_axis_3))
-pprint_np("body_screw_axis_4", pprint_np(body_screw_axis_4))
-pprint_np("body_screw_axis_5", pprint_np(body_screw_axis_5))
-pprint_np("body_screw_axis_6", pprint_np(body_screw_axis_6))
+pprint_np(label="body_screw_axis_1", arr=body_screw_axis_1)
+pprint_np(label="body_screw_axis_2", arr=body_screw_axis_2)
+pprint_np(label="body_screw_axis_3", arr=body_screw_axis_3)
+pprint_np(label="body_screw_axis_4", arr=body_screw_axis_4)
+pprint_np(label="body_screw_axis_5", arr=body_screw_axis_5)
+pprint_np(label="body_screw_axis_6", arr=body_screw_axis_6)
 
-body_Slist = np.row_stack(
+body_Slist = np.column_stack(
     [
         body_screw_axis_1,
         body_screw_axis_2,
@@ -160,10 +171,10 @@ body_Slist = np.row_stack(
         body_screw_axis_5,
         body_screw_axis_6,
     ]
-)   
+)
 
-pprint_np("body_Slist", pprint_np(body_Slist))
+pprint_np(label="body_Slist", arr=body_Slist)
 
 body_T_question_2 = mr.FKinBody(M, body_Slist, joint_angles_config_question_3)
 
-pprint_np("body_T_question_2", pprint_np(body_T_question_2))
+pprint_np(label="body_T_question_2", arr=body_T_question_2)
