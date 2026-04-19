@@ -89,43 +89,39 @@ link_length_unit = 1
 
 s1 = np.array([0, 0, 1])
 q1 = np.array([link_length_unit, 0, 0])
-v1 = np.cross(q1, s1)
-screw_axis_1 = np.concatenate([s1, v1])
+h1 = 0
+
+screw_axis_1 = mr.ScrewToAxis(q1, s1, h1)
 
 s2 = np.array([0, 1, 0])
 q2 = np.array([link_length_unit, 0, 0])
-v2 = np.cross(q2, s2)
-screw_axis_2 = np.concatenate([s2, v2])
+h2 = 0
+screw_axis_2 = mr.ScrewToAxis(q2, s2, h2)
 
 s3 = np.array([0, 1, 0])
 q3 = np.array([link_length_unit*(1+math.sqrt(3)), 0, -1])
-v3 = np.cross(q3, s3)
-screw_axis_3 = np.concatenate([s3, v3])
+h3 = 0
+screw_axis_3 = mr.ScrewToAxis(q3, s3, h3)
 
 s4 = np.array([0, 1, 0])
 q4 = np.array([link_length_unit*(math.sqrt(3)+2), 0, link_length_unit*(math.sqrt(3)-1)])
-v4 = np.cross(q4, s4)
-screw_axis_4 = np.concatenate([s4, v4])
+h4 = 0
+screw_axis_4 = mr.ScrewToAxis(q4, s4, h4)
 
-s5 = np.array([0, 0, 0])
-v5 = np.array([0, 0, 1])
-screw_axis_5 = np.concatenate([s5, v5])
-
+screw_axis_5 = np.array([0, 0, 0, 0, 0, 1])
 s6 = np.array([0, 0, 1])
 q6 = np.array([link_length_unit*(math.sqrt(3)+2), 0, link_length_unit*(math.sqrt(3)-1+2)])
-v6 = np.cross(q6, s6)
-screw_axis_6 = np.concatenate([s6, v6])
+h6 = 0
+screw_axis_6 = mr.ScrewToAxis(q6, s6, h6)
 
 joint_angles_config_question_3 = np.array([-math.pi/2, math.pi/2, math.pi/3, -math.pi/4, 1, math.pi/6])
 
-
-
-pprint_np(label="screw_axis_1", arr=screw_axis_1)  
+pprint_np(label="screw_axis_1", arr=screw_axis_1)
 pprint_np(label="screw_axis_2", arr=screw_axis_2)
 pprint_np(label="screw_axis_3", arr=screw_axis_3)
 pprint_np(label="screw_axis_4", arr=screw_axis_4)
 pprint_np(label="screw_axis_5", arr=screw_axis_5)
-pprint_np(label="screw_axis_6", arr=screw_axis_6)
+pprint_np(label="screw_axis_6", arr=screw_axis_6)   
 
 Slist = np.column_stack(
     [
