@@ -1,5 +1,10 @@
 
-def IKinBody(Blist, M, T, thetalist0, eomg, ev):
+import csv
+import numpy as np
+import modern_robotics as mr
+from np_utils import format_numpy_compact, pprint_np
+
+def IKinBodyIterates(Blist, M, T, thetalist0, eomg, ev):
     """Computes inverse kinematics in the body frame for an open chain robot
 
     :param Blist: The joint screw axes in the end-effector frame when the
@@ -47,18 +52,38 @@ def IKinBody(Blist, M, T, thetalist0, eomg, ev):
     thetalist = np.array(thetalist0).copy()
     i = 0
     maxiterations = 20
-    Vb = se3ToVec(MatrixLog6(np.dot(TransInv(FKinBody(M, Blist, \
+    Vb = mr.se3ToVec(mr.MatrixLog6(np.dot(mr.TransInv(mr.FKinBody(M, Blist, \
                                                       thetalist)), T)))
     err = np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg \
           or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
+    collection_list_of_thetas_i = [thetalist0]
     while err and i < maxiterations:
+        print(f"Iteration {i}")
+        
+
         thetalist = thetalist \
-                    + np.dot(np.linalg.pinv(JacobianBody(Blist, \
+                    + np.dot(np.linalg.pinv(mr.JacobianBody(Blist, \
                                                          thetalist)), Vb)
+        pprint_np(thetalist, label="joint_vector_theta_i")
+        SE3_config_i = mr.FKinBody(M, Blist, thetalist) 
+        pprint_np(SE3_config_i, label="SE3_end_effector_config_theta_i")
         i = i + 1
         Vb \
-        = se3ToVec(MatrixLog6(np.dot(TransInv(FKinBody(M, Blist, \
-                                                       thetalist)), T)))
+        = mr.se3ToVec(mr.MatrixLog6(np.dot(mr.TransInv(SE3_config_i), T)))
+        pprint_np(Vb, label="Error twist V_b")
+        angular_error_magnitude = np.linalg.norm([Vb[0], Vb[1], Vb[2]])
+        linear_error_magnitude = np.linalg.norm([Vb[3], Vb[4], Vb[5]])
+        pprint_np(angular_error_magnitude, label="Angular error magnitude")
+        pprint_np(linear_error_magnitude, label="Linear error magnitude")
+
+
+        
         err = np.linalg.norm([Vb[0], Vb[1], Vb[2]]) > eomg \
               or np.linalg.norm([Vb[3], Vb[4], Vb[5]]) > ev
+
+        collection_list_of_thetas_i.append(thetalist)
+
+    with open("chapter_6_peer_graded_assignment_thetas.csv", "w", newline='') as f:
+        csv.writer(f).writerows(collection_list_of_thetas_i)
+
     return (thetalist, not err)

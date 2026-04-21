@@ -4,6 +4,8 @@ import math
 
 from np_utils import format_numpy_compact, pprint_np
 
+from chapter_6_peer_graded_assignment import IKinBodyIterates
+
 # preliminaries
 
 link_length_unit = 1
@@ -29,8 +31,10 @@ B3 = np.array([0, 0, 1, 0, 1, 0])
 
 B_list = np.column_stack([B1, B2, B3])
 
-pprint_np(label="B_list", arr=B_list)
+# pprint_np(label="B_list", arr=B_list)
 
 theta_list, success = mr.IKinBody(B_list, M, T_sd, theta_0, tolerance_w, tolerance_v)
 
-pprint_np(label="theta_list", arr=theta_list)
+# pprint_np(label="theta_list", arr=theta_list)
+
+theta_list, success = IKinBodyIterates(B_list, M, T_sd, theta_0, tolerance_w, tolerance_v)
