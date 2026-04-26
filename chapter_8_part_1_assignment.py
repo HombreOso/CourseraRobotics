@@ -38,10 +38,11 @@ inertia_matrix_cylinder_own_frame = np.array([
 
 def parallel_axis_theorem(inertia_own_frame, mass, q):
     qt_q = q.T @ q
-    return inertia_own_frame + mass * (qt_q * np.eye(3) - np.outer(q, q))
+    q_qt = q @ q.T
+    return inertia_own_frame + mass * (qt_q * np.eye(3) - q_qt)
 
-q_left_sphere = np.array([0, 0, -length_cylinder / 2])
-q_right_sphere = np.array([0, 0, length_cylinder / 2])
+q_left_sphere = np.array([0, 0, -length_cylinder / 2 - diameter_sphere / 2])
+q_right_sphere = np.array([0, 0, length_cylinder / 2 + diameter_sphere / 2])
 
 inertia_left_sphere_in_dumpbell_frame = parallel_axis_theorem(
     inertia_matrix_sphere_own_frame, mass_dumpbell, q_left_sphere)
@@ -57,7 +58,7 @@ print("resulting_inertia =\n", resulting_inertia)
 
 pprint_np(label="resulting_inertia", arr=resulting_inertia)
 
-
+# question 5
 M01 = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.089159], [0, 0, 0, 1]]
 M12 = [[0, 0, 1, 0.28], [0, 1, 0, 0.13585], [-1, 0, 0, 0], [0, 0, 0, 1]]
 M23 = [[1, 0, 0, 0], [0, 1, 0, -0.1197], [0, 0, 1, 0.395], [0, 0, 0, 1]]
@@ -85,3 +86,15 @@ theta_velocity    = np.array([0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
 theta_acceleration = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 gravity           = np.array([0, 0, -9.81])
 wrench_tip        = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+
+torques = mr.InverseDynamics(thetalist=theta, dthetalist=theta_velocity, ddthetalist=theta_acceleration, g=gravity, Ftip=wrench_tip, Mlist=Mlist, \
+                    Glist=Glist, Slist=Slist)
+
+pprint_np(label="torques", arr=torques)
+
+
+# question 2:
+
+theta_list = np.array([0, math.pi/6, math.pi/4, math.pi/3, math.pi/2, 2*math.pi/3])
+theta_velocity_list = np.array([0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
+theta_acceleration_list = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
