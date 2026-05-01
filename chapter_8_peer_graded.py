@@ -1,5 +1,7 @@
 import numpy as np
 import csv
+import time
+import modern_robotics as mr
 
 M01 = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.089159], [0, 0, 0, 1]]
 M12 = [[0, 0, 1, 0.28], [0, 1, 0, 0.13585], [-1, 0, 0, 0], [0, 0, 0, 1]]
@@ -23,18 +25,57 @@ Slist = [[0,         0,         0,         0,        0,        0],
          [0,         0,         0,         0,  0.81725,        0],
          [0,         0,     0.425,   0.81725,        0,  0.81725]]
 
+Slist_Part_1 = np.array(Slist)
+Glist_Part_1 = np.array(Glist)
+
+
+theta_list_start_part_1 = np.array([0,0,0,0,0,0])
+theta_list_start_part_2 = np.array([0,-1,0,0,0,0])
+
+T_joint_2_part_1 = mr.FKinSpace(Mlist[:2], Slist_Part_1[:,:2], theta_list_start_part_2[:2])
+
+S_2_part_2 = mr.Adjoint(mr.MatrixExp6(theta_2_part_2 * Slist_Part_1[:,1])) @ Slist_Part_1[:,1]
+S_3_part_2 = mr.Adjoint(mr.MatrixExp6(theta_3_part_2 * Slist_Part_1[:,2])) @ Slist_Part_1[:,2]
+S_4_part_2 = mr.Adjoint(mr.MatrixExp6(theta_4_part_2 * Slist_Part_1[:,3])) @ Slist_Part_1[:,3]
+S_5_part_2 = mr.Adjoint(mr.MatrixExp6(theta_5_part_2 * Slist_Part_1[:,4])) @ Slist_Part_1[:,4]
+S_6_part_2 = mr.Adjoint(mr.MatrixExp6(theta_6_part_2 * Slist_Part_1[:,5])) @ Slist_Part_1[:,5]
+
+Slist_part_2 = np.column_stack(
+    [
+        Slist_Part_1[:, 0],
+        S_2_part_2,
+        S_3_part_2,
+        S_4_part_2,
+        S_5_part_2,
+        S_6_part_2,
+    ]
+)
+
+def recalculate_spatial_inertia_matrix_part_2(old_intertia_matrix, exp6_matrix):
+    return mr.Adjoint(mr.TransInv(exp6_matrix)) @ old_intertia_matrix @ mr.Adjoint(exp6_matrix)
+
+
+
+T_joint2_part_2 = mr.MatrixExp6(theta_2_part_2 * Slist_Part_1[:,1])
+G_2_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 1], T_joint2_part_2)
+G_3_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 2], T_joint2_part_2)
+G_4_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 3], T_joint2_part_2)
+G_5_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 4], T_joint2_part_2)
+G_6_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 5], T_joint2_part_2)
+
+Glist_part_2 = np.column_stack([Glist_Part_1[:, 0], G_2_part_2, G_3_part_2, G_4_part_2, G_5_part_2, G_6_part_2])
+
 gravity = np.array([0, 0, -9.81])
 
 import modern_robotics as mr
-theta_list_start_part_1 = np.array([0,0,0,0,0,0])
-theta_list_start_part_2 = np.array([0,-1,0,0,0,0])
+
 simulation_duration_seconds_part_2 = 5
 
 integration_time_steps_per_second = 100
 integration_time_step_count_part_1 = 3 * integration_time_steps_per_second
 integration_time_step_count_part_2 = 5 * integration_time_steps_per_second
 
-integration_time_step = 1 / integration_time_steps_per_second # Hertz
+integration_time_step = 1 # seconds
 
 theta_list_part_1 = [theta_list_start_part_1]
 theta_list_part_2 = [theta_list_start_part_2]
@@ -51,51 +92,97 @@ constant_wrench_tip_part_1 = constant_wrench_tip_part_2 = np.zeros(6)
 
 
 
-# PART 1:
-for i in range(integration_time_step_count_part_1):
-    # calculate the acceleration of joints using forward dynamics
-    current_ddtheta_list_part_1 = mr.ForwardDynamics(
-        thetalist=current_theta_list_part_1, 
-        dthetalist=current_dtheta_list_part_1, 
-        taulist=constant_tau_list_part_1, 
-        g=gravity, 
-        Ftip=constant_wrench_tip_part_1, 
-        Mlist=Mlist, 
-        Glist=Glist, 
-        Slist=Slist)
-    # calculate the next theta and velocity using Euler step
-    [current_theta_list_part_1, current_dtheta_list_part_1] = mr.EulerStep(
-        thetalist=current_theta_list_part_1, 
-        dthetalist=current_dtheta_list_part_1, 
-        ddthetalist=current_ddtheta_list_part_1, 
-        dt=integration_time_step)
+# # PART 1:
+# for i in range(integration_time_step_count_part_1):
+#     # calculate the acceleration of joints using forward dynamics
+#     current_ddtheta_list_part_1 = mr.ForwardDynamics(
+#         thetalist=current_theta_list_part_1, 
+#         dthetalist=current_dtheta_list_part_1, 
+#         taulist=constant_tau_list_part_1, 
+#         g=gravity, 
+#         Ftip=constant_wrench_tip_part_1, 
+#         Mlist=Mlist, 
+#         Glist=Glist, 
+#         Slist=Slist)
+#     # calculate the next theta and velocity using Euler step
+#     [current_theta_list_part_1, current_dtheta_list_part_1] = mr.EulerStep(
+#         thetalist=current_theta_list_part_1, 
+#         dthetalist=current_dtheta_list_part_1, 
+#         ddthetalist=current_ddtheta_list_part_1, 
+#         dt=integration_time_step)
 
-    theta_list_part_1.append(current_theta_list_part_1)
+#     theta_list_part_1.append(current_theta_list_part_1)
+
+# # PART 2:
+# for i in range(integration_time_step_count_part_2):
+
+#     # calculate the acceleration of joints using forward dynamics
+#     current_ddtheta_list_part_2 = mr.ForwardDynamics(
+#         thetalist=current_theta_list_part_2, 
+#         dthetalist=current_dtheta_list_part_2, 
+#         taulist=constant_tau_list_part_2, 
+#         g=gravity, 
+#         Ftip=constant_wrench_tip_part_2, 
+#         Mlist=Mlist, 
+#         Glist=Glist, 
+#         Slist=Slist)
+#     # calculate the next theta and velocity using Euler step
+#     [current_theta_list_part_2, current_dtheta_list_part_2] = mr.EulerStep(
+#         thetalist=current_theta_list_part_2, 
+#         dthetalist=current_dtheta_list_part_2, 
+#         ddthetalist=current_ddtheta_list_part_2, 
+#         dt=integration_time_step)
+
+#     theta_list_part_2.append(current_theta_list_part_2)
+
+# # save theta lists to csv
+# with open("chapter_8_peer_graded_assignment_part_1_thetas.csv", "w", newline='') as f:
+#     csv.writer(f).writerows(theta_list_part_1)
+# with open("chapter_8_peer_graded_assignment_part_2_thetas.csv", "w", newline='') as f:
+#     csv.writer(f).writerows(theta_list_part_2)
+
+# PART 1:
+# start_time_part_1 = time.time()
+# print(f"Start time part 1: {start_time_part_1}")
+# [thetamat, dthetamat] = mr.ForwardDynamicsTrajectory(
+#     thetalist= theta_list_start_part_1, 
+#     dthetalist = np.zeros(6),
+#     taumat = np.zeros((300, 6)),
+#     g = gravity,
+#     Ftipmat = np.zeros((300, 6)),
+#     Mlist = Mlist,
+#     Glist = Glist,
+#     Slist = Slist,
+#     dt = 3.0/100.0,
+#     intRes = 100)
+
+# end_time_part_1 = time.time()
+# print(f"End time part 1: {end_time_part_1}")
+# print(f"Time taken part 1: {end_time_part_1 - start_time_part_1}")
+# print("Saving thetas to csv file...")
+# with open("chapter_8_peer_graded_assignment_part_1_thetas_one_func.csv", "w", newline='') as f:
+#     csv.writer(f).writerows(thetamat)
+# print("Thetas saved to csv file.")
 
 # PART 2:
-for i in range(integration_time_step_count_part_2):
-
-    # calculate the acceleration of joints using forward dynamics
-    current_ddtheta_list_part_2 = mr.ForwardDynamics(
-        thetalist=current_theta_list_part_2, 
-        dthetalist=current_dtheta_list_part_2, 
-        taulist=constant_tau_list_part_2, 
-        g=gravity, 
-        Ftip=constant_wrench_tip_part_2, 
-        Mlist=Mlist, 
-        Glist=Glist, 
-        Slist=Slist)
-    # calculate the next theta and velocity using Euler step
-    [current_theta_list_part_2, current_dtheta_list_part_2] = mr.EulerStep(
-        thetalist=current_theta_list_part_2, 
-        dthetalist=current_dtheta_list_part_2, 
-        ddthetalist=current_ddtheta_list_part_2, 
-        dt=integration_time_step)
-
-    theta_list_part_2.append(current_theta_list_part_2)
-
-# save theta lists to csv
-with open("chapter_8_peer_graded_assignment_part_1_thetas.csv", "w", newline='') as f:
-    csv.writer(f).writerows(theta_list_part_1)
-with open("chapter_8_peer_graded_assignment_part_2_thetas.csv", "w", newline='') as f:
-    csv.writer(f).writerows(theta_list_part_2)
+start_time_part_2 = time.time()
+print(f"Start time part 2: {start_time_part_2}")
+[thetamat, dthetamat] = mr.ForwardDynamicsTrajectory(
+    thetalist= theta_list_start_part_2, 
+    dthetalist = np.zeros(6),
+    taumat = np.zeros((500, 6)),
+    g = gravity,
+    Ftipmat = np.zeros((500, 6)),
+    Mlist = Mlist,
+    Glist = Glist_part_2,
+    Slist = Slist_part_2,
+    dt = 5.0/100.0,
+    intRes = 1)
+end_time_part_2 = time.time()
+print(f"End time part 2: {end_time_part_2}")
+print(f"Time taken part 2: {end_time_part_2 - start_time_part_2}")
+print("Saving thetas to csv file...")
+# write each row of thetamat to a csv file
+with open("chapter_8_peer_graded_assignment_part_2_thetas_one_func.csv", "w", newline='') as f:
+    csv.writer(f).writerows(thetamat)
+print("Thetas saved to csv file.")
