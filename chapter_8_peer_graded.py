@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import time
 import modern_robotics as mr
+from np_utils import format_numpy_compact, pprint_np
 
 M01 = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.089159], [0, 0, 0, 1]]
 M12 = [[0, 0, 1, 0.28], [0, 1, 0, 0.13585], [-1, 0, 0, 0], [0, 0, 0, 1]]
@@ -28,17 +29,19 @@ Slist = [[0,         0,         0,         0,        0,        0],
 Slist_Part_1 = np.array(Slist)
 Glist_Part_1 = np.array(Glist)
 
+theta_joint_2_part_2 = -1
+
 
 theta_list_start_part_1 = np.array([0,0,0,0,0,0])
-theta_list_start_part_2 = np.array([0,-1,0,0,0,0])
+theta_list_start_part_2 = np.array([0,theta_joint_2_part_2,0,0,0,0])
 
-T_joint_2_part_1 = mr.FKinSpace(Mlist[:2], Slist_Part_1[:,:2], theta_list_start_part_2[:2])
-
-S_2_part_2 = mr.Adjoint(mr.MatrixExp6(theta_2_part_2 * Slist_Part_1[:,1])) @ Slist_Part_1[:,1]
-S_3_part_2 = mr.Adjoint(mr.MatrixExp6(theta_3_part_2 * Slist_Part_1[:,2])) @ Slist_Part_1[:,2]
-S_4_part_2 = mr.Adjoint(mr.MatrixExp6(theta_4_part_2 * Slist_Part_1[:,3])) @ Slist_Part_1[:,3]
-S_5_part_2 = mr.Adjoint(mr.MatrixExp6(theta_5_part_2 * Slist_Part_1[:,4])) @ Slist_Part_1[:,4]
-S_6_part_2 = mr.Adjoint(mr.MatrixExp6(theta_6_part_2 * Slist_Part_1[:,5])) @ Slist_Part_1[:,5]
+M_home_joint2 = np.array(M01) @ np.array(M12)
+T_joint_2_part_1 = mr.FKinSpace(M_home_joint2, Slist_Part_1[:, :2], theta_list_start_part_2[:2])
+S_2_part_2 = mr.Adjoint(mr.MatrixExp6(mr.VecTose3(theta_joint_2_part_2 * Slist_Part_1[:,1]))) @ Slist_Part_1[:,1]
+S_3_part_2 = mr.Adjoint(mr.MatrixExp6(mr.VecTose3(theta_joint_2_part_2 * Slist_Part_1[:,1]))) @ Slist_Part_1[:,2]
+S_4_part_2 = mr.Adjoint(mr.MatrixExp6(mr.VecTose3(theta_joint_2_part_2 * Slist_Part_1[:,1]))) @ Slist_Part_1[:,3]
+S_5_part_2 = mr.Adjoint(mr.MatrixExp6(mr.VecTose3(theta_joint_2_part_2 * Slist_Part_1[:,1]))) @ Slist_Part_1[:,4]
+S_6_part_2 = mr.Adjoint(mr.MatrixExp6(mr.VecTose3(theta_joint_2_part_2 * Slist_Part_1[:,1]))) @ Slist_Part_1[:,5]
 
 Slist_part_2 = np.column_stack(
     [
@@ -56,14 +59,20 @@ def recalculate_spatial_inertia_matrix_part_2(old_intertia_matrix, exp6_matrix):
 
 
 
-T_joint2_part_2 = mr.MatrixExp6(theta_2_part_2 * Slist_Part_1[:,1])
-G_2_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 1], T_joint2_part_2)
-G_3_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 2], T_joint2_part_2)
-G_4_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 3], T_joint2_part_2)
-G_5_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 4], T_joint2_part_2)
-G_6_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[:, 5], T_joint2_part_2)
+T_joint2_part_2 = mr.MatrixExp6(mr.VecTose3(theta_joint_2_part_2 * Slist_Part_1[:,1]))
+G_2_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[1], T_joint2_part_2)
+G_3_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[2], T_joint2_part_2)
+G_4_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[3], T_joint2_part_2)
+G_5_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[4], T_joint2_part_2)
+G_6_part_2 = recalculate_spatial_inertia_matrix_part_2(Glist_Part_1[5], T_joint2_part_2)
 
-Glist_part_2 = np.column_stack([Glist_Part_1[:, 0], G_2_part_2, G_3_part_2, G_4_part_2, G_5_part_2, G_6_part_2])
+print("G_2_part_2 =\n", G_2_part_2)
+print("G_3_part_2 =\n", G_3_part_2)
+print("G_4_part_2 =\n", G_4_part_2)
+print("G_5_part_2 =\n", G_5_part_2)
+print("G_6_part_2 =\n", G_6_part_2)
+
+Glist_part_2 = np.array([Glist_Part_1[:, 0], G_2_part_2, G_3_part_2, G_4_part_2, G_5_part_2, G_6_part_2])
 
 gravity = np.array([0, 0, -9.81])
 
@@ -166,6 +175,9 @@ constant_wrench_tip_part_1 = constant_wrench_tip_part_2 = np.zeros(6)
 
 # PART 2:
 start_time_part_2 = time.time()
+
+
+print("Glist_part_2_shape: ", Glist_part_2.shape)
 print(f"Start time part 2: {start_time_part_2}")
 [thetamat, dthetamat] = mr.ForwardDynamicsTrajectory(
     thetalist= theta_list_start_part_2, 
