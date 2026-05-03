@@ -106,33 +106,32 @@ constant_wrench_tip_part_1 = constant_wrench_tip_part_2 = np.zeros(6)
 #     csv.writer(f).writerows(theta_list_part_2)
 
 # PART 1:
-# start_time_part_1 = time.time()
-# print(f"Start time part 1: {start_time_part_1}")
-# [thetamat, dthetamat] = mr.ForwardDynamicsTrajectory(
-#     thetalist= theta_list_start_part_1, 
-#     dthetalist = np.zeros(6),
-#     taumat = np.zeros((300, 6)),
-#     g = gravity,
-#     Ftipmat = np.zeros((300, 6)),
-#     Mlist = Mlist,
-#     Glist = Glist,
-#     Slist = Slist,
-#     dt = 3.0/100.0,
-#     intRes = 100)
+print("Starting part 1...")
+start_time_part_1 = time.time()
+[thetamat, dthetamat] = mr.ForwardDynamicsTrajectory(
+    thetalist= theta_list_start_part_1, 
+    dthetalist = np.zeros(6),
+    taumat = np.zeros((300, 6)),
+    g = gravity,
+    Ftipmat = np.zeros((300, 6)),
+    Mlist = Mlist,
+    Glist = Glist,
+    Slist = Slist,
+    dt = 3.0/100.0,
+    intRes = 10)
 
-# end_time_part_1 = time.time()
-# print(f"End time part 1: {end_time_part_1}")
-# print(f"Time taken part 1: {end_time_part_1 - start_time_part_1}")
-# print("Saving thetas to csv file...")
-# with open("chapter_8_peer_graded_assignment_part_1_thetas_one_func.csv", "w", newline='') as f:
-#     csv.writer(f).writerows(thetamat)
-# print("Thetas saved to csv file.")
+end_time_part_1 = time.time()
+print(f"Time taken part 1: {end_time_part_1 - start_time_part_1}")
+print("Saving thetas to csv file...")
+with open("chapter_8_peer_graded_assignment_part_1_thetas_one_func.csv", "w", newline='') as f:
+    csv.writer(f).writerows(thetamat)
+print("Thetas saved to csv file.")
 
 # PART 2:
+print("Starting part 2...")
 start_time_part_2 = time.time()
 
 
-print(f"Start time part 2: {start_time_part_2}")
 [thetamat, dthetamat] = mr.ForwardDynamicsTrajectory(
     thetalist= theta_list_start_part_2, 
     dthetalist = np.zeros(6),
@@ -143,12 +142,18 @@ print(f"Start time part 2: {start_time_part_2}")
     Glist = Glist,
     Slist = Slist,
     dt = 5.0/100.0,
-    intRes = 1)
+    intRes = 10)
 end_time_part_2 = time.time()
-print(f"End time part 2: {end_time_part_2}")
 print(f"Time taken part 2: {end_time_part_2 - start_time_part_2}")
 print("Saving thetas to csv file...")
 # write each row of thetamat to a csv file
 with open("chapter_8_peer_graded_assignment_part_2_thetas_one_func.csv", "w", newline='') as f:
     csv.writer(f).writerows(thetamat)
 print("Thetas saved to csv file.")
+
+
+# save dthetas to csv file
+with open("chapter_8_peer_graded_assignment_part_1_dthetas_one_func.csv", "w", newline='') as f:
+    csv.writer(f).writerows(dthetamat)
+with open("chapter_8_peer_graded_assignment_part_2_dthetas_one_func.csv", "w", newline='') as f:
+    csv.writer(f).writerows(dthetamat)
