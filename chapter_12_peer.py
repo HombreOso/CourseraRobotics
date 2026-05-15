@@ -72,18 +72,22 @@ def plot_feasible_cor_regions(
 ) -> plt.Axes:
     """Plot the feasible center-of-rotation (COR) regions for a set of contacts.
 
-    For a planar rigid body rotating about a COR at (cx, cy) with angular
-    velocity ω, the velocity at contact point (x, y) along the inward contact
-    normal n = (cos φ, sin φ) must be non-negative (no penetration):
+    Each contact normal arrow divides the plane into two half-planes:
+      - CORs to the LEFT  of the arrow → CCW rotation (ω > 0) is feasible
+      - CORs to the RIGHT of the arrow → CW  rotation (ω < 0) is feasible
 
-        n · v_contact = ω · [cx·sin φ − cy·cos φ − (x·sin φ − y·cos φ)] ≥ 0
+    Formally, for a COR (cx, cy) and contact at (x, y) with inward normal
+    angle φ, the velocity along the normal is:
 
-    Dividing by ω > 0 or ω < 0 gives two families of half-plane constraints on
-    (cx, cy).  Their intersections are the feasible COR regions:
-      - Blue  : CCW rotation (ω > 0) is feasible
-      - Red   : CW  rotation (ω < 0) is feasible
+        n · v = ω · [(x·sin φ − y·cos φ) − (cx·sin φ − cy·cos φ)] ≥ 0
 
-    If both regions are empty the contacts achieve form closure.
+    Setting s = cx·sin φ − cy·cos φ  and  s0 = x·sin φ − y·cos φ:
+      ω > 0 (CCW)  →  s ≤ s0   (COR left  of arrow)
+      ω < 0 (CW)   →  s ≥ s0   (COR right of arrow)
+
+    The feasible COR region is the intersection of all per-contact half-planes.
+    If either intersection is empty there is no feasible motion in that sense;
+    if both are empty the contacts achieve form closure.
     """
     if ax is None:
         _, ax = plt.subplots(figsize=(7, 7))
@@ -98,12 +102,13 @@ def plot_feasible_cor_regions(
         phi = np.radians(contact.direction)
         sin_phi, cos_phi = np.sin(phi), np.cos(phi)
 
-        # Per-contact signed quantity in COR space
-        lhs = cx * sin_phi - cy * cos_phi
-        rhs = contact.y * cos_phi - contact.x * sin_phi
+        # s  = cx·sinφ − cy·cosφ  (signed distance of COR from normal line)
+        # s0 = x·sinφ  − y·cosφ  (same quantity evaluated at the contact point)
+        s  = cx * sin_phi - cy * cos_phi
+        s0 = contact.x * sin_phi - contact.y * cos_phi
 
-        feasible_ccw &= lhs >= rhs   # ω > 0  →  lhs ≥ rhs
-        feasible_cw  &= lhs <= rhs   # ω < 0  →  lhs ≤ rhs
+        feasible_ccw &= s <= s0   # ω > 0: COR must be LEFT  of arrow
+        feasible_cw  &= s >= s0   # ω < 0: COR must be RIGHT of arrow
 
     for mask, color in [(feasible_ccw, "steelblue"), (feasible_cw, "tomato")]:
         if mask.any():
