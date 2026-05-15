@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -162,6 +163,12 @@ if __name__ == "__main__":
     else:
         print("There is no form closure")
 
-    plot_feasible_cor_regions(contacts)
+    ax = plot_feasible_cor_regions(contacts)
+    fig = ax.figure
     plt.tight_layout()
     plt.show()
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"Chapter_12_Plot_CoR_{timestamp}.png"
+    fig.savefig(filename, dpi=150, bbox_inches="tight")
+    print(f"Plot saved as {filename}")
