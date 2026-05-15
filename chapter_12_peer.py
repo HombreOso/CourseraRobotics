@@ -110,7 +110,7 @@ def plot_feasible_cor_regions(
         feasible_ccw &= s <= s0   # ω > 0: COR must be LEFT  of arrow
         feasible_cw  &= s >= s0   # ω < 0: COR must be RIGHT of arrow
 
-    for mask, color in [(feasible_ccw, "steelblue"), (feasible_cw, "tomato")]:
+    for mask, color in [(feasible_ccw, "tomato"), (feasible_cw, "steelblue")]:
         if mask.any():
             ax.contourf(cx, cy, mask.astype(float), levels=[0.5, 1.5],
                         colors=[color], alpha=0.4)
@@ -138,8 +138,8 @@ def plot_feasible_cor_regions(
     ax.set_title("Feasible Center-of-Rotation Regions")
     ax.grid(True, alpha=0.3)
     ax.legend(handles=[
-        mpatches.Patch(facecolor="steelblue", alpha=0.4, label="CCW rotation (ω > 0)"),
-        mpatches.Patch(facecolor="tomato",    alpha=0.4, label="CW  rotation (ω < 0)"),
+        mpatches.Patch(facecolor="tomato", alpha=0.4, label="CCW rotation (ω > 0)"),
+        mpatches.Patch(facecolor="steelblue",    alpha=0.4, label="CW  rotation (ω < 0)"),
     ], loc="upper right")
 
     return ax
