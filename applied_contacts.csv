@@ -1,0 +1,9 @@
+# Applied contacts file
+# Format: x (m), y (m), direction (degrees)
+# direction = angle of contact normal vector, measured from positive x-axis
+x,y,direction
+1.0,0.0,180.0
+0.0,1.0,270.0
+-1.0,0.0,0.0
+0.0,-1.0,90.0
+0.5,0.5,225.0
