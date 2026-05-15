@@ -1,0 +1,14 @@
+The file applied_contacts.csv contains each contact data as one row.
+x in m, y in m, direction in degrees
+
+The python script should be in the same folder with this csv file.
+
+Run from your console:
+py ./chapter_12_peer.py
+
+You will see a Matplotlib plot with arrows of contacts according to csv.
+The feasible Centers of Rotation will be shown in red (positive, CCW rottaions)
+and blue (negative, CW rotations).
+
+After closing the Matplotlib window, the plot you saw will be saved as a PNG file
+with the timestamp of saving in its name.
