@@ -71,22 +71,48 @@ def plot_feasible_cor_regions(
     grid_resolution: int = 500,
     ax: plt.Axes | None = None,
 ) -> plt.Axes:
-    """Plot the feasible center-of-rotation (COR) regions for a set of contacts.
+    """Plot the feasible center-of-rotation (CoR) regions for a set of contacts.
 
     Each contact normal arrow divides the plane into two half-planes:
       - CORs to the LEFT  of the arrow → CCW rotation (ω > 0) is feasible
       - CORs to the RIGHT of the arrow → CW  rotation (ω < 0) is feasible
 
-    Formally, for a COR (cx, cy) and contact at (x, y) with inward normal
+    Formally, for a CoR (cx, cy) and contact at (x, y) with inward normal
     angle φ, the velocity along the normal is:
 
         n · v = ω · [(x·sin φ − y·cos φ) − (cx·sin φ − cy·cos φ)] ≥ 0
 
-    Setting s = cx·sin φ − cy·cos φ  and  s0 = x·sin φ − y·cos φ:
-      ω > 0 (CCW)  →  s ≤ s0   (COR left  of arrow)
-      ω < 0 (CW)   →  s ≥ s0   (COR right of arrow)
+    Symbol legend:
+      n          Unit contact normal vector (cos φ, sin φ) — points inward into
+                 the object at the contact point.
+      v          Velocity of the contact point on the rigid body.
+      ·          Dot product (scalar projection).
+      ω          Angular velocity of the rigid body (scalar; positive = CCW,
+                 negative = CW).
+      x, y       Coordinates of the contact point.
+      φ          Angle of the contact normal vector in radians (contact.direction
+                 converted from degrees).
+      cx, cy     Coordinates of the candidate center of rotation (CoR).
+      x·sin φ − y·cos φ
+                 Projection of the contact point onto the direction perpendicular
+                 to the normal; equivalently, the signed distance of the contact
+                 point from the line through the origin in direction φ.
+      cx·sin φ − cy·cos φ
+                 Same projection evaluated at the CoR.
+      (…) − (…) Signed distance between the CoR and the contact point along the
+                 perpendicular-to-normal direction — determines left vs. right.
+      ≥ 0        Non-penetration condition: the contact point must not move into
+                 the surface; it may move along it or away from it.
 
-    The feasible COR region is the intersection of all per-contact half-planes.
+    The velocity of the contact point along the inward normal equals
+    ω times the signed distance from the CoR to the contact normal line — and
+    that must be non-negative for a valid (non-penetrating) motion.
+
+    Setting s = cx·sin φ − cy·cos φ  and  s0 = x·sin φ − y·cos φ:
+      ω > 0 (CCW)  →  s ≤ s0   (CoR left  of arrow)
+      ω < 0 (CW)   →  s ≥ s0   (CoR right of arrow)
+
+    The feasible CoR region is the intersection of all per-contact half-planes.
     If either intersection is empty there is no feasible motion in that sense;
     if both are empty the contacts achieve form closure.
     """
@@ -103,13 +129,13 @@ def plot_feasible_cor_regions(
         phi = np.radians(contact.direction)
         sin_phi, cos_phi = np.sin(phi), np.cos(phi)
 
-        # s  = cx·sinφ − cy·cosφ  (signed distance of COR from normal line)
+        # s  = cx·sinφ − cy·cosφ  (signed distance of CoR from normal line)
         # s0 = x·sinφ  − y·cosφ  (same quantity evaluated at the contact point)
         s  = cx * sin_phi - cy * cos_phi
         s0 = contact.x * sin_phi - contact.y * cos_phi
 
-        feasible_ccw &= s <= s0   # ω > 0: COR must be LEFT  of arrow
-        feasible_cw  &= s >= s0   # ω < 0: COR must be RIGHT of arrow
+        feasible_ccw &= s <= s0   # ω > 0: CoR must be LEFT  of arrow
+        feasible_cw  &= s >= s0   # ω < 0: CoR must be RIGHT of arrow
 
     for mask, color in [(feasible_ccw, "tomato"), (feasible_cw, "steelblue")]:
         if mask.any():
