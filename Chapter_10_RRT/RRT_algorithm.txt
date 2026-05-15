@@ -1,0 +1,30 @@
+Rapid-Exploring Random Tree Algorithm
+
+1: initialize search tree T with xstart
+2: while T is less than the maximum tree size do
+3: xsamp sample from X (comment AE: for this case, we sample from a uniform distribution of
+square area each side in closed range [-0.5,0.5])
+4: xnearest nearest node in T to xsamp (comment AE: the measure of dinstance here is just Euclidean distance)
+5: employ a local planner to find a motion from xnearest to xnew in
+the direction of x (local path planner should take a short distance d from x_nearest in direction to x_samp, 
+check if there is a collision - see further below)
+samp
+6: if the motion is collision-free then
+7: add xnew to T with an edge from xnearest to xnew
+8: if xnew is in Xgoal then
+9: return SUCCESS and the motion to xnew
+10: end if
+11: end if
+12: end while
+13: return FAILURE
+
+(comment AE: every step should be clearly documented in comments, every function 
+should be documented with docstrings: what the function does, parameters and return
+values description including their types: use python typing features)
+
+(comment AE: there is already A-star graph search algorithm implemented. You can reuse this code partially 
+and description of csv files)
+(comment AE: The goal of the code RRT is to create Random Tree as described above, output nodes.csv, edges.csv,
+and path.csv - these files are examples, should be re-written by the program)
+
+(comment AE: Euclidean distance between should be seen as costs of going from one node to another)
