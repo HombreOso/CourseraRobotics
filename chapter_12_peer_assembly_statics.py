@@ -101,22 +101,19 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
 
     return contacts
 
-def compute_planar_friction_cones(contact: ContactDescription) -> np.ndarray:
-    """Compute the planar friction cones for a single contact.
+def compute_planar_friction_cones_from_contact_list(contacts: list[ContactDescription]) -> np.ndarray:
+    """Compute the planar friction cones for a list of contacts.
+    """
+    return np.array([compute_planar_friction_cone_from_contact(c) for c in contacts])
+
+def compute_planar_friction_cone_from_contact(contact: ContactDescription) -> np.ndarray:
+    """Compute the planar friction cone for a single contact.
     """
     phi = np.radians(contact.normal_deg)
     return np.array([
         [np.cos(phi), np.sin(phi)],
         [-np.sin(phi), np.cos(phi)],
     ])
-
-
-def linear_programming_form_closure_test(contacts: list[ContactDescription]) -> bool:
-    """Test if the contacts achieve form closure.
-    """
-
-    
-    return True
 
 # ---------------------------------------------------------------------------
 # Entry point
