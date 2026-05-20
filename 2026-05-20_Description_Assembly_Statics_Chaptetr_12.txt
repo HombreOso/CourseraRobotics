@@ -1,0 +1,21 @@
+Input csv:
+
+"bodies_static_mass_properties.csv"
+a description of the static mass properties of each of the 
+N bodies: the (x,y) location of the center of mass and the total mass (e.g., in kg); 
+
+and
+
+"contacts_description.csv"
+a description of the contacts. Each contact consists of a list of the two bodies involved 
+in the contact (0 means stationary ground, 1 means body 1, 2 means body 2, etc.); the (x,y) 
+location of the contact; the contact normal direction into the first body involved in the contact 
+(this direction should be specified in degrees); and the friction coefficient 
+μ at the contact. For example, in the image shown (C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-05-20_Example_image_assembly_statics.png), 
+the single contact between body 1 and body 2 could 
+be specified as (1, 2, 60, 60, 180, 0.5). This means the contact is between body 1 and 2, the 
+contact location is at (60,60), the angle of the contact normal pointing into the first body in 
+the list (body 1) is at 180 degrees, and the friction coefficient 
+μ is 0.5. One of the contacts between body 0 (ground) and body 2 could be specified as 
+(2, 0, 72, 0, 90, 0.25), indicating that the contact normal into body 2 is at 90 degrees 
+and the friction coefficient is 0.25.
