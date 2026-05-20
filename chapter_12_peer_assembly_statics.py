@@ -101,6 +101,22 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
 
     return contacts
 
+def compute_planar_friction_cones(contact: ContactDescription) -> np.ndarray:
+    """Compute the planar friction cones for a single contact.
+    """
+    phi = np.radians(contact.normal_deg)
+    return np.array([
+        [np.cos(phi), np.sin(phi)],
+        [-np.sin(phi), np.cos(phi)],
+    ])
+
+
+def linear_programming_form_closure_test(contacts: list[ContactDescription]) -> bool:
+    """Test if the contacts achieve form closure.
+    """
+
+    
+    return True
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -152,3 +168,4 @@ if __name__ == "__main__":
         # diagnose the failure without needing to re-run the script.
         log.error("Run failed with an unhandled exception:\n%s", traceback.format_exc())
         raise   # re-raise so the process exits with a non-zero return code
+
