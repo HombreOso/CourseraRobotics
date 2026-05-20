@@ -30,6 +30,11 @@ class ContactDescription:
     normal_deg: float # angle of the inward contact normal INTO body_A [deg, CCW from +x]
     mu: float         # coefficient of friction at this contact [-]
 
+    @dataclass
+    class FrictionCone:
+        normal: np.ndarray
+        friction: np.ndarray
+
 
 # ---------------------------------------------------------------------------
 # I/O
@@ -101,19 +106,19 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
 
     return contacts
 
-def compute_planar_friction_cones_from_contact_list(contacts: list[ContactDescription]) -> np.ndarray:
+def compute_planar_friction_cones_from_contact_list(contacts: list[ContactDescription]) -> list[FrictionCone]:
     """Compute the planar friction cones for a list of contacts.
     """
     return np.array([compute_planar_friction_cone_from_contact(c) for c in contacts])
 
-def compute_planar_friction_cone_from_contact(contact: ContactDescription) -> np.ndarray:
+def compute_planar_friction_cone_from_contact(contact: ContactDescription) -> FrictionCone:
     """Compute the planar friction cone for a single contact.
     """
     phi = np.radians(contact.normal_deg)
-    return np.array([
-        [np.cos(phi), np.sin(phi)],
-        [-np.sin(phi), np.cos(phi)],
-    ])
+    return FrictionCone(
+        normal=np.array([np.cos(phi), np.sin(phi)]),
+        friction=np.array([-np.sin(phi), np.cos(phi)]),
+    )
 
 # ---------------------------------------------------------------------------
 # Entry point
