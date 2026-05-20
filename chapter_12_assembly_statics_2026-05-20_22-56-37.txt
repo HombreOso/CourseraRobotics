@@ -1,0 +1,22 @@
+2026-05-20 22:56:37  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-20_22-56-37.txt
+2026-05-20 22:56:37  INFO      Loaded 2 body/bodies:
+2026-05-20 22:56:37  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=1.0 kg
+2026-05-20 22:56:37  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=4.0 kg
+2026-05-20 22:56:37  INFO      Loaded 4 contact(s):
+2026-05-20 22:56:37  INFO        Body 1 <-> Body 0  at (5.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-20 22:56:37  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-20 22:56:37  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-20 22:56:37  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.25
+2026-05-20 22:56:37  INFO      Run completed successfully.
+2026-05-20 22:56:37  ERROR     Run failed with an unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 206, in <module>
+    friction_cones = compute_planar_friction_cones_from_contact_list(contacts)
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 119, in compute_planar_friction_cones_from_contact_list
+    return np.array([compute_planar_friction_cone_from_contact(c, c.mu) for c in contacts])
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 127, in compute_planar_friction_cone_from_contact
+    friction_force_1_absolute_value = force_2_absolute_value = np.linalg.norm(normal_force)*math.sqrt(1+friction_coefficient**2)
+                                                                                            ^^^^
+NameError: name 'math' is not defined. Did you forget to import 'math'?
+

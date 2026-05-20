@@ -1,4 +1,5 @@
 import csv
+import math
 from datetime import datetime
 from dataclasses import dataclass
 
@@ -39,6 +40,10 @@ class ContactDescription:
 class FrictionCone:
     normal: np.ndarray
     friction: list[Force]
+    x_contact: float
+    y_contact: float
+    body_A_id: int
+    body_B_id: int
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +119,7 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
 def compute_planar_friction_cones_from_contact_list(contacts: list[ContactDescription]) -> list[FrictionCone]:
     """Compute the planar friction cones for a list of contacts.
     """
-    return np.array([compute_planar_friction_cone_from_contact(c) for c in contacts])
+    return np.array([compute_planar_friction_cone_from_contact(c, c.mu) for c in contacts])
 
 def compute_planar_friction_cone_from_contact(contact: ContactDescription, friction_coefficient: float) -> FrictionCone:
     """Compute the planar friction cone for a single contact.
@@ -122,16 +127,14 @@ def compute_planar_friction_cone_from_contact(contact: ContactDescription, frict
     phi = np.radians(contact.normal_deg)  # angle of the inward contact normal INTO body_A [deg, CCW from +x]
     alpha = np.arctan(friction_coefficient) # angle of the friction force [rad] relative to the normal force
     normal_force = np.array([np.cos(phi), np.sin(phi)])
-    friction_force_1_absolute_value = force_2_absolute_value = np.linalg.norm(normal_force)*math.sqrt(1+friction_coefficient**2)
+    friction_force_1_absolute_value = friction_force_2_absolute_value = np.linalg.norm(normal_force)*math.sqrt(1+friction_coefficient**2)
     friction_force_1 = Force(magnitude=friction_force_1_absolute_value, direction_degrees=np.degrees(phi+alpha))
     friction_force_2 = Force(magnitude=friction_force_2_absolute_value, direction_degrees=np.degrees(phi-alpha))
-    return FrictionCone(normal=normal_force, friction=[friction_force_1, friction_force_2])
+    return FrictionCone(normal=normal_force, friction=[friction_force_1, friction_force_2], x_contact=contact.x, y_contact=contact.y, body_A_id=contact.body_A, body_B_id=contact.body_B)
 
 
-def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: FrictionCone, 
-                                                                  x_contact: float, 
-                                                                  y_contact: float) 
-                                                                  -> tuple[np.ndarray, np.ndarray]:
+def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: FrictionCone) -> tuple[np.ndarray, np.ndarray]:
+    
     """Compute the planar contact wrench pair for a single friction cone.
 
     Args:
@@ -141,7 +144,8 @@ def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: 
     Returns:
         tuple of 2-D ndarrays of shape (3,): the planar wrench pair [m, fx, fy].
     """
-
+    x_contact = friction_cone.x_contact
+    y_contact = friction_cone.y_contact
     force_1 = friction_cone.friction[0]
     force_2 = friction_cone.friction[1]
     angle_1 = np.radians(force_1.direction_degrees)
@@ -219,13 +223,29 @@ if __name__ == "__main__":
         # Inequality constraint −kᵢ ≤ −1, i.e. kᵢ ≥ 1 for every contact.
         # Written in matrix form:  A · k ≤ b  with A = −I, b = −1.
         b = np.full(len(contacts*2), -1.0)
-        wrenches_list = 
-
-        # Equality constraints: three constraints for each body
-
-
-
-
+        for body in bodies:
+            current_body_id = body.body_id
+            current_body_contact_list = [c for c in contacts if c.body_A == current_body_id or c.body_B == current_body_id]
+            current_body_friction_cones = [fc for fc in friction_cones if fc.body_A_id == current_body_id or fc.body_B_id == current_body_id]
+        current_body_friction_cone_wrench_pairs = [compute_friction_cone_contact_wrench_pair_from_friction_cone(
+            fc) for fc in current_body_friction_cones]
+        print("current_body_friction_cone_wrench_pairs: ", current_body_friction_cone_wrench_pairs)
+        print("current_body_contact_list: ", current_body_contact_list)
+        print("current_body_friction_cones: ", current_body_friction_cones)
+        print("current_body_id: ", current_body_id)
+        log.info("current_body_friction_cone_wrench_pairs: %s", current_body_friction_cone_wrench_pairs)
+        log.info("current_body_contact_list: %s", current_body_contact_list)
+        log.info("current_body_friction_cones: %s", current_body_friction_cones)
+        log.info("current_body_id: %s", current_body_id)
+        print("Shape of current_body_friction_cone_wrench_pairs: ", np.shape(current_body_friction_cone_wrench_pairs))
+        print("Shape of current_body_contact_list: ", np.shape(current_body_contact_list))
+        print("Shape of current_body_friction_cones: ", np.shape(current_body_friction_cones))
+        print("Shape of current_body_id: ", np.shape(current_body_id))
+        print("Shape of gravity_forces_list: ", np.shape(gravity_forces_list))
+        print("Shape of f: ", np.shape(f))
+        print("Shape of b: ", np.shape(b))
+        print("Shape of A: ", np.shape(A))
+        print("Shape of contact_wrenches: ", np.shape(contact_wrenches))
 
 
     except Exception:
