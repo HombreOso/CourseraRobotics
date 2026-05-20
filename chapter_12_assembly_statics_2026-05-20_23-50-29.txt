@@ -1,0 +1,37 @@
+2026-05-20 23:50:29  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-20_23-50-29.txt
+2026-05-20 23:50:29  INFO      Loaded 2 body/bodies:
+2026-05-20 23:50:29  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=1.0 kg
+2026-05-20 23:50:29  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=4.0 kg
+2026-05-20 23:50:29  INFO      Loaded 4 contact(s):
+2026-05-20 23:50:29  INFO        Body 1 <-> Body 0  at (5.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-20 23:50:29  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-20 23:50:29  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-20 23:50:29  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.25
+2026-05-20 23:50:29  INFO      Run completed successfully.
+2026-05-20 23:50:29  INFO      Computed 4 friction cones:
+2026-05-20 23:50:29  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-20 23:50:29  INFO        Normal: [-1.0000000e+00  1.2246468e-16], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(206.565051177078)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(153.434948822922))]
+2026-05-20 23:50:29  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-20 23:50:29  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.0307764064044151), direction_degrees=np.float64(104.03624346792648)), Force(magnitude=np.float64(1.0307764064044151), direction_degrees=np.float64(75.96375653207352))]
+2026-05-20 23:50:29  INFO      current_body_friction_cone_wrench_pairs: [(), (array([53.66563146, -0.5       ,  1.        ]), array([53.66563146,  0.5       ,  1.        ])), (array([69.85026001, -0.25      ,  1.        ]), array([69.85026001,  0.25      ,  1.        ]))]
+2026-05-20 23:50:29  INFO      current_body_contact_list: [ContactDescription(body_A=1, body_B=2, x=60.0, y=60.0, normal_deg=180.0, mu=0.5), ContactDescription(body_A=2, body_B=0, x=60.0, y=0.0, normal_deg=90.0, mu=0.5), ContactDescription(body_A=2, body_B=0, x=72.0, y=0.0, normal_deg=90.0, mu=0.25)]
+2026-05-20 23:50:29  INFO      current_body_friction_cones: [FrictionCone(normal=array([-1.0000000e+00,  1.2246468e-16]), friction=[Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(206.565051177078)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(153.434948822922))], x_contact=60.0, y_contact=60.0, body_A_id=1, body_B_id=2), FrictionCone(normal=array([6.123234e-17, 1.000000e+00]), friction=[Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))], x_contact=60.0, y_contact=0.0, body_A_id=2, body_B_id=0), FrictionCone(normal=array([6.123234e-17, 1.000000e+00]), friction=[Force(magnitude=np.float64(1.0307764064044151), direction_degrees=np.float64(104.03624346792648)), Force(magnitude=np.float64(1.0307764064044151), direction_degrees=np.float64(75.96375653207352))], x_contact=72.0, y_contact=0.0, body_A_id=2, body_B_id=0)]
+2026-05-20 23:50:29  INFO      current_body_id: 2
+2026-05-20 23:50:29  ERROR     Run failed with an unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\admin\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\numpy\_core\fromnumeric.py", line 2127, in shape
+    result = a.shape
+             ^^^^^^^
+AttributeError: 'list' object has no attribute 'shape'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 246, in <module>
+    print("Shape of current_body_friction_cone_wrench_pairs: ", np.shape(current_body_friction_cone_wrench_pairs))
+                                                                ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\admin\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\numpy\_core\fromnumeric.py", line 2129, in shape
+    result = asarray(a).shape
+             ~~~~~~~^^^
+ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (3,) + inhomogeneous part.
+

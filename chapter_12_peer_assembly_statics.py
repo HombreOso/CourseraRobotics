@@ -116,6 +116,7 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
 
     return contacts
 
+
 def compute_planar_friction_cones_from_contact_list(contacts: list[ContactDescription]) -> list[FrictionCone]:
     """Compute the planar friction cones for a list of contacts.
     """
@@ -219,40 +220,43 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------------
 
         # Objective: minimise the sum of all coefficients kᵢ (linear, all ones).
-        f = np.full(len(contacts*2), 1.0)
-        # Inequality constraint −kᵢ ≤ −1, i.e. kᵢ ≥ 1 for every contact.
-        # Written in matrix form:  A · k ≤ b  with A = −I, b = −1.
-        b = np.full(len(contacts*2), -1.0)
+        
+        equality_constraints = []
+        beq_list = np.zeros(3*len(bodies))
+        Aeq_matrix_total = np.zeros((3*len(bodies), 2*len(contacts)))
         for body in bodies:
             current_body_id = body.body_id
+            current_body_gravity_wrench = np.array([0, 0, -body.mass * 9.81])
             current_body_contact_list = [c for c in contacts if c.body_A == current_body_id or c.body_B == current_body_id]
             current_body_friction_cones = [fc for fc in friction_cones if fc.body_A_id == current_body_id or fc.body_B_id == current_body_id]
-        current_body_friction_cone_wrench_pairs = [
-            # The wrench is defined with the normal pointing INTO body_A.
-            # If the current body is body_B it experiences the equal-and-opposite
-            # reaction (Newton's 3rd law), so the entire wrench flips sign.
-            compute_friction_cone_contact_wrench_pair_from_friction_cone(fc) * (-1 if fc.body_B_id == current_body_id else 1)
-            for fc in current_body_friction_cones
-            if fc.body_A_id == current_body_id or fc.body_B_id == current_body_id
-        ]
-        print("current_body_friction_cone_wrench_pairs: ", current_body_friction_cone_wrench_pairs)
-        print("current_body_contact_list: ", current_body_contact_list)
-        print("current_body_friction_cones: ", current_body_friction_cones)
-        print("current_body_id: ", current_body_id)
-        log.info("current_body_friction_cone_wrench_pairs: %s", current_body_friction_cone_wrench_pairs)
-        log.info("current_body_contact_list: %s", current_body_contact_list)
-        log.info("current_body_friction_cones: %s", current_body_friction_cones)
-        log.info("current_body_id: %s", current_body_id)
-        print("Shape of current_body_friction_cone_wrench_pairs: ", np.shape(current_body_friction_cone_wrench_pairs))
-        print("Shape of current_body_contact_list: ", np.shape(current_body_contact_list))
-        print("Shape of current_body_friction_cones: ", np.shape(current_body_friction_cones))
-        print("Shape of current_body_id: ", np.shape(current_body_id))
-        print("Shape of gravity_forces_list: ", np.shape(gravity_forces_list))
-        print("Shape of f: ", np.shape(f))
-        print("Shape of b: ", np.shape(b))
-        print("Shape of A: ", np.shape(A))
-        print("Shape of contact_wrenches: ", np.shape(contact_wrenches))
+            current_body_wrenches = []
+            for fc in current_body_friction_cones:
+                forces_sign = -1 if fc.body_B_id == current_body_id else 1
+                friction_cone_wrench_pair = compute_friction_cone_contact_wrench_pair_from_friction_cone(fc) * forces_sign
+                
+                current_body_wrenches += friction_cone_wrench_pair
+            
+            current_body_beq = (-1) * current_body_gravity_wrench
+            current_body_Aeq = np.array(current_body_wrenches).transpose()
+            beq_list[3*current_body_id-3:3*current_body_id] = current_body_beq
+            Aeq_matrix_total[3*current_body_id-3:3*current_body_id, :] = current_body_Aeq
 
+        Aeq = Aeq_matrix_total
+        beq = beq_list
+        b = np.full(len(contacts)*2, -1.0)
+        f = np.full(len(contacts)*2, 1.0)
+        A = np.eye(len(contacts)*2) * (-1)
+        result = linprog(f, A, b, Aeq, beq)
+        # linprog sets result.success = True and populates result.x when a
+        # feasible solution is found; otherwise the problem is infeasible and
+        # result.x is None — meaning no positive combination balances the wrenches,
+        # so form closure does not hold.
+        if result.success and result.x is not None:
+            print("Linear combinations are: ", result.x)
+            log.info("Linear combinations are: %s", result.x)
+        else:
+            print("There is no form closure")
+            log.info("There is no form closure")
 
     except Exception:
         # Log the full traceback so the txt file contains enough detail to
