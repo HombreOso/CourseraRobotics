@@ -227,8 +227,14 @@ if __name__ == "__main__":
             current_body_id = body.body_id
             current_body_contact_list = [c for c in contacts if c.body_A == current_body_id or c.body_B == current_body_id]
             current_body_friction_cones = [fc for fc in friction_cones if fc.body_A_id == current_body_id or fc.body_B_id == current_body_id]
-        current_body_friction_cone_wrench_pairs = [compute_friction_cone_contact_wrench_pair_from_friction_cone(
-            fc) for fc in current_body_friction_cones]
+        current_body_friction_cone_wrench_pairs = [
+            # The wrench is defined with the normal pointing INTO body_A.
+            # If the current body is body_B it experiences the equal-and-opposite
+            # reaction (Newton's 3rd law), so the entire wrench flips sign.
+            compute_friction_cone_contact_wrench_pair_from_friction_cone(fc) * (-1 if fc.body_B_id == current_body_id else 1)
+            for fc in current_body_friction_cones
+            if fc.body_A_id == current_body_id or fc.body_B_id == current_body_id
+        ]
         print("current_body_friction_cone_wrench_pairs: ", current_body_friction_cone_wrench_pairs)
         print("current_body_contact_list: ", current_body_contact_list)
         print("current_body_friction_cones: ", current_body_friction_cones)
