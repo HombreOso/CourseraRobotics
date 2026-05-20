@@ -107,17 +107,48 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    bodies   = read_bodies()
-    contacts = read_contacts()
+    import logging
+    import traceback
 
-    print(f"Loaded {len(bodies)} body/bodies:")
-    for b in bodies:
-        print(f"  Body {b.body_id}: CoM=({b.x_com}, {b.y_com}) mm, mass={b.mass} kg")
+    # ------------------------------------------------------------------
+    # Logging setup — one handler writes to the console, another to a
+    # timestamped .txt file so every run produces a unique, traceable log.
+    # The timestamp uses the moment the script starts (not when each line
+    # is written), so the filename matches the execution you are reviewing.
+    # ------------------------------------------------------------------
+    run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename  = f"chapter_12_assembly_statics_{run_timestamp}.txt"
 
-    print(f"\nLoaded {len(contacts)} contact(s):")
-    for c in contacts:
-        print(
-            f"  Body {c.body_A} ↔ Body {c.body_B}  "
-            f"at ({c.x}, {c.y}) mm  "
-            f"normal={c.normal_deg}°  μ={c.mu}"
-        )
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s  %(levelname)-8s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[
+            logging.StreamHandler(),                       # console
+            logging.FileHandler(log_filename, encoding="utf-8"),  # txt file
+        ],
+    )
+    log = logging.getLogger(__name__)
+    log.info("Run started — log file: %s", log_filename)
+
+    try:
+        bodies   = read_bodies()
+        contacts = read_contacts()
+
+        log.info("Loaded %d body/bodies:", len(bodies))
+        for b in bodies:
+            log.info("  Body %d: CoM=(%s, %s) mm, mass=%s kg",
+                     b.body_id, b.x_com, b.y_com, b.mass)
+
+        log.info("Loaded %d contact(s):", len(contacts))
+        for c in contacts:
+            log.info("  Body %d <-> Body %d  at (%s, %s) mm  normal=%s deg  mu=%s",
+                     c.body_A, c.body_B, c.x, c.y, c.normal_deg, c.mu)
+
+        log.info("Run completed successfully.")
+
+    except Exception:
+        # Log the full traceback so the txt file contains enough detail to
+        # diagnose the failure without needing to re-run the script.
+        log.error("Run failed with an unhandled exception:\n%s", traceback.format_exc())
+        raise   # re-raise so the process exits with a non-zero return code
