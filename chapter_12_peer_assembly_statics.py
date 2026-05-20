@@ -14,6 +14,11 @@ from scipy.optimize import linprog
 # ---------------------------------------------------------------------------
 
 @dataclass
+class Force:
+    magnitude: float
+    direction_degrees: float
+
+@dataclass
 class Body:
     body_id: int    # integer label; 0 is reserved for the stationary ground
     x_com: float    # x-coordinate of the center of mass [mm]
@@ -30,10 +35,10 @@ class ContactDescription:
     normal_deg: float # angle of the inward contact normal INTO body_A [deg, CCW from +x]
     mu: float         # coefficient of friction at this contact [-]
 
-    @dataclass
-    class FrictionCone:
-        normal: np.ndarray
-        friction: np.ndarray
+@dataclass
+class FrictionCone:
+    normal: np.ndarray
+    friction: list[Force]
 
 
 # ---------------------------------------------------------------------------
@@ -111,15 +116,44 @@ def compute_planar_friction_cones_from_contact_list(contacts: list[ContactDescri
     """
     return np.array([compute_planar_friction_cone_from_contact(c) for c in contacts])
 
-def compute_planar_friction_cone_from_contact(contact: ContactDescription) -> FrictionCone:
+def compute_planar_friction_cone_from_contact(contact: ContactDescription, friction_coefficient: float) -> FrictionCone:
     """Compute the planar friction cone for a single contact.
     """
-    phi = np.radians(contact.normal_deg)
-    return FrictionCone(
-        normal=np.array([np.cos(phi), np.sin(phi)]),
-        friction=np.array([-np.sin(phi), np.cos(phi)]),
-    )
+    phi = np.radians(contact.normal_deg)  # angle of the inward contact normal INTO body_A [deg, CCW from +x]
+    alpha = np.arctan(friction_coefficient) # angle of the friction force [rad] relative to the normal force
+    normal_force = np.array([np.cos(phi), np.sin(phi)])
+    friction_force_1_absolute_value = force_2_absolute_value = np.linalg.norm(normal_force)*math.sqrt(1+friction_coefficient**2)
+    friction_force_1 = Force(magnitude=friction_force_1_absolute_value, direction_degrees=np.degrees(phi+alpha))
+    friction_force_2 = Force(magnitude=friction_force_2_absolute_value, direction_degrees=np.degrees(phi-alpha))
+    return FrictionCone(normal=normal_force, friction=[friction_force_1, friction_force_2])
 
+
+def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: FrictionCone, 
+                                                                  x_contact: float, 
+                                                                  y_contact: float) 
+                                                                  -> tuple[np.ndarray, np.ndarray]:
+    """Compute the planar contact wrench pair for a single friction cone.
+
+    Args:
+        friction_cone: Friction cone with normal and friction forces.
+        x_contact: x-coordinate of the contact point [mm]
+        y_contact: y-coordinate of the contact point [mm]
+    Returns:
+        tuple of 2-D ndarrays of shape (3,): the planar wrench pair [m, fx, fy].
+    """
+
+    force_1 = friction_cone.friction[0]
+    force_2 = friction_cone.friction[1]
+    angle_1 = np.radians(force_1.direction_degrees)
+    angle_2 = np.radians(force_2.direction_degrees)
+
+    wrench_1 = np.array([x_contact * np.sin(angle_1) - y_contact * np.cos(angle_1), 
+    force_1.magnitude * np.cos(angle_1), 
+    force_1.magnitude * np.sin(angle_1)])
+    wrench_2 = np.array([x_contact * np.sin(angle_2) - y_contact * np.cos(angle_2), 
+    force_2.magnitude * np.cos(angle_2), 
+    force_2.magnitude * np.sin(angle_2)])
+    return (wrench_1, wrench_2)
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -164,6 +198,35 @@ if __name__ == "__main__":
                      c.body_A, c.body_B, c.x, c.y, c.normal_deg, c.mu)
 
         log.info("Run completed successfully.")
+
+        # ---------------------------------------------------------------------------
+        # Compute the planar friction cones for the contacts
+        # ---------------------------------------------------------------------------
+        friction_cones = compute_planar_friction_cones_from_contact_list(contacts)
+        log.info("Computed %d friction cones:", len(friction_cones))
+        for fc in friction_cones:
+            log.info("  Normal: %s, Friction: %s", fc.normal, fc.friction)
+        # ---------------------------------------------------------------------------
+        # Prepare linear programming problem
+        # ---------------------------------------------------------------------------
+        # Earth Gravity forces
+        gravity_forces_list = np.array([[0, 0, -bodies[b.body_id-1].mass * 9.81] for b in bodies])
+
+        # ---------------------------------------------------------------------------
+
+        # Objective: minimise the sum of all coefficients kᵢ (linear, all ones).
+        f = np.full(len(contacts*2), 1.0)
+        # Inequality constraint −kᵢ ≤ −1, i.e. kᵢ ≥ 1 for every contact.
+        # Written in matrix form:  A · k ≤ b  with A = −I, b = −1.
+        b = np.full(len(contacts*2), -1.0)
+        wrenches_list = 
+
+        # Equality constraints: three constraints for each body
+
+
+
+
+
 
     except Exception:
         # Log the full traceback so the txt file contains enough detail to

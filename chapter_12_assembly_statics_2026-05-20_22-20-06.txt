@@ -1,0 +1,22 @@
+2026-05-20 22:20:06  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-20_22-20-06.txt
+2026-05-20 22:20:06  INFO      Loaded 2 body/bodies:
+2026-05-20 22:20:06  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=1.0 kg
+2026-05-20 22:20:06  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=4.0 kg
+2026-05-20 22:20:06  INFO      Loaded 4 contact(s):
+2026-05-20 22:20:06  INFO        Body 1 <-> Body 0  at (5.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-20 22:20:06  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-20 22:20:06  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-20 22:20:06  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.25
+2026-05-20 22:20:06  INFO      Run completed successfully.
+2026-05-20 22:20:06  INFO      Computed 4 friction cones:
+2026-05-20 22:20:06  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [-1.000000e+00  6.123234e-17]
+2026-05-20 22:20:06  INFO        Normal: [-1.0000000e+00  1.2246468e-16], Friction: [-1.2246468e-16 -1.0000000e+00]
+2026-05-20 22:20:06  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [-1.000000e+00  6.123234e-17]
+2026-05-20 22:20:06  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [-1.000000e+00  6.123234e-17]
+2026-05-20 22:20:06  ERROR     Run failed with an unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 179, in <module>
+    gravity_forces_list = np.array([[0, 0, -bodies[b.body_id].mass * 9.81] for b in bodies])
+                                            ~~~~~~^^^^^^^^^^^
+IndexError: list index out of range
+
