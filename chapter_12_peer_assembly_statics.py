@@ -222,8 +222,8 @@ if __name__ == "__main__":
         # Objective: minimise the sum of all coefficients kᵢ (linear, all ones).
         
         equality_constraints = []
-        beq_list = np.zeros(3*len(bodies))
-        Aeq_matrix_total = np.zeros((3*len(bodies), 2*len(contacts)))
+        resulting_body_k_arrays_dict = {}
+        total_success = True
         for body in bodies:
             current_body_id = body.body_id
             current_body_gravity_wrench = np.array([0, 0, -body.mass * 9.81])
@@ -238,25 +238,44 @@ if __name__ == "__main__":
             
             current_body_beq = (-1) * current_body_gravity_wrench
             current_body_Aeq = np.array(current_body_wrenches).transpose()
-            beq_list[3*current_body_id-3:3*current_body_id] = current_body_beq
-            Aeq_matrix_total[3*current_body_id-3:3*current_body_id, :] = current_body_Aeq
-
-        Aeq = Aeq_matrix_total
-        beq = beq_list
-        b = np.full(len(contacts)*2, -1.0)
-        f = np.full(len(contacts)*2, 1.0)
-        A = np.eye(len(contacts)*2) * (-1)
-        result = linprog(f, A, b, Aeq, beq)
-        # linprog sets result.success = True and populates result.x when a
-        # feasible solution is found; otherwise the problem is infeasible and
-        # result.x is None — meaning no positive combination balances the wrenches,
-        # so form closure does not hold.
-        if result.success and result.x is not None:
-            print("Linear combinations are: ", result.x)
-            log.info("Linear combinations are: %s", result.x)
+            current_body_A = np.eye(len(current_body_wrenches)) * (-1)
+            current_body_b = np.full(len(current_body_wrenches), -1.0)
+            current_body_f = np.full(len(current_body_wrenches), 1.0)
+            print("current body id: ", current_body_id)
+            print("current body beq: ", current_body_beq)
+            print("current body Aeq: ", current_body_Aeq)
+            log.info("current body id: %d", current_body_id)
+            log.info("current body beq: %s", current_body_beq)
+            log.info("current body Aeq: %s", current_body_Aeq)
+            log.info("current body A: %s", current_body_A)
+            log.info("current body b: %s", current_body_b)
+            current_body_linprog_result = linprog(
+                c=current_body_f, 
+                A_ub=current_body_A, 
+                b_ub=current_body_b, 
+                A_eq=current_body_Aeq, 
+                b_eq=current_body_beq)
+            current_body_k_array = current_body_linprog_result.x
+            current_body_k_array_dict[current_body_id] = {
+                current_body_k_array: current_body_k_array,
+                current_body_linprog_result.success: current_body_linprog_result.success,
+            
+            }
+            total_success = total_success and current_body_linprog_result.success
+        if total_success:
+            print("Total success: Form closure is achieved")
+            log.info("Total success: Form closure is achieved")
         else:
-            print("There is no form closure")
-            log.info("There is no form closure")
+            print("Total failure: Form closure is not achieved")
+            log.info("Total failure: Form closure is not achieved")
+            for body in bodies:
+                current_body_id = body.body_id
+                current_body_k_array = current_body_k_array_dict[current_body_id]
+                print("current body id: ", current_body_id)
+                print("current body k array: ", current_body_k_array)
+                log.info("current body id: %d", current_body_id)
+                log.info("current body k array: %s", current_body_k_array)
+
 
     except Exception:
         # Log the full traceback so the txt file contains enough detail to
