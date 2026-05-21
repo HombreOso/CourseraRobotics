@@ -29,9 +29,9 @@
 
 # comment out the case which is out of scope
 
-# case 1 - collapse
+# case 2 - equilibrium
 body_A,body_B,x,y,normal_deg,mu
-1,0,0,0,90,0.10
+1,0,0,0,90,0.50
 1,2,60,60,180,0.50
 2,0,60,0,90,0.50
 2,0,72,0,90,0.50

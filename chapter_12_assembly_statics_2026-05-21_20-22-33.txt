@@ -1,0 +1,35 @@
+2026-05-21 20:22:33  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-21_20-22-33.txt
+2026-05-21 20:22:33  INFO      Loaded 2 body/bodies:
+2026-05-21 20:22:33  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=1.0 kg
+2026-05-21 20:22:33  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=4.0 kg
+2026-05-21 20:22:33  INFO      Loaded 4 contact(s):
+2026-05-21 20:22:33  INFO        Body 1 <-> Body 0  at (0.0, 0.0) mm  normal=90.0 deg  mu=0.1
+2026-05-21 20:22:33  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-21 20:22:33  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 20:22:33  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 20:22:33  INFO      Run completed successfully.
+2026-05-21 20:22:33  INFO      Computed 4 friction cones:
+2026-05-21 20:22:33  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.004987562112089), direction_degrees=np.float64(95.71059313749964)), Force(magnitude=np.float64(1.004987562112089), direction_degrees=np.float64(84.28940686250036))]
+2026-05-21 20:22:33  INFO        Normal: [-1.0000000e+00  1.2246468e-16], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(206.565051177078)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(153.434948822922))]
+2026-05-21 20:22:33  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 20:22:33  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 20:22:33  INFO      current body id: 1
+2026-05-21 20:22:33  INFO      current body beq: [-0.   -0.    9.81]
+2026-05-21 20:22:33  INFO      current body Aeq: [[ 0.          0.         26.83281573 80.49844719]
+ [-0.1         0.1        -1.         -1.        ]
+ [ 1.          1.         -0.5         0.5       ]]
+2026-05-21 20:22:33  INFO      current body A: [[0. 0. 0. 0.]
+ [0. 0. 0. 0.]
+ [0. 0. 0. 0.]
+ [0. 0. 0. 0.]]
+2026-05-21 20:22:33  INFO      current body b: [0. 0. 0. 0.]
+2026-05-21 20:22:33  ERROR     Run failed with an unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 257, in <module>
+    resulting_body_k_arrays_dict[current_body_id] = {
+                                                    ^
+    ...<3 lines>...
+    }
+    ^
+TypeError: cannot use 'numpy.ndarray' as a dict key (unhashable type: 'numpy.ndarray')
+

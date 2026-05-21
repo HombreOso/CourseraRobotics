@@ -1,0 +1,32 @@
+2026-05-21 22:22:51  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-21_22-22-51.txt
+2026-05-21 22:22:51  INFO      Loaded 2 body/bodies:
+2026-05-21 22:22:51  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=2.0 kg
+2026-05-21 22:22:51  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=5.0 kg
+2026-05-21 22:22:51  INFO      Loaded 4 contact(s):
+2026-05-21 22:22:51  INFO        Body 1 <-> Body 0  at (0.0, 0.0) mm  normal=90.0 deg  mu=0.1
+2026-05-21 22:22:51  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-21 22:22:51  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 22:22:51  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 22:22:51  INFO      Run completed successfully.
+2026-05-21 22:22:51  INFO      Computed 4 friction cones:
+2026-05-21 22:22:51  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.004987562112089), direction_degrees=np.float64(95.71059313749964)), Force(magnitude=np.float64(1.004987562112089), direction_degrees=np.float64(84.28940686250036))]
+2026-05-21 22:22:51  INFO        Normal: [-1.0000000e+00  1.2246468e-16], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(206.565051177078)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(153.434948822922))]
+2026-05-21 22:22:51  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 22:22:51  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 22:22:51  INFO      current body id: 1
+2026-05-21 22:22:51  INFO      current body beq: [490.5   -0.    19.62]
+2026-05-21 22:22:51  INFO      current body Aeq: [[ 0.   0.  30.  90. ]
+ [-0.1  0.1 -1.  -1. ]
+ [ 1.   1.  -0.5  0.5]]
+2026-05-21 22:22:51  INFO      current body id: 2
+2026-05-21 22:22:51  INFO      current body beq: [3237.3    -0.     49.05]
+2026-05-21 22:22:51  INFO      current body Aeq: [[-30.  -90.   60.   60.   72.   72. ]
+ [  1.    1.   -0.5   0.5  -0.5   0.5]
+ [  0.5  -0.5   1.    1.    1.    1. ]]
+2026-05-21 22:22:51  INFO      current body id: 1
+2026-05-21 22:22:51  INFO      current body k array: {'current_body_k_array': None}
+2026-05-21 22:22:51  INFO      current body k array is None -> Equilibrium is not achieved
+2026-05-21 22:22:51  INFO      current body id: 2
+2026-05-21 22:22:51  INFO      current body k array: {'current_body_k_array': array([ 0.00000000e+00,  0.00000000e+00,  2.45250000e+01,  0.00000000e+00,
+       -3.90798505e-14,  2.45250000e+01])}
+2026-05-21 22:22:51  INFO      current body k array is not None -> Equilibrium is achieved

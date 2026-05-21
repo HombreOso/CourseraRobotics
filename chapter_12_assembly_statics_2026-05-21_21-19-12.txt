@@ -1,0 +1,24 @@
+2026-05-21 21:19:12  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-21_21-19-12.txt
+2026-05-21 21:19:12  INFO      Loaded 2 body/bodies:
+2026-05-21 21:19:12  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=2.0 kg
+2026-05-21 21:19:12  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=10.0 kg
+2026-05-21 21:19:12  INFO      Loaded 4 contact(s):
+2026-05-21 21:19:12  INFO        Body 1 <-> Body 0  at (0.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 21:19:12  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-21 21:19:12  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 21:19:12  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 21:19:12  INFO      Run completed successfully.
+2026-05-21 21:19:12  INFO      Computed 4 friction cones:
+2026-05-21 21:19:12  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 21:19:12  INFO        Normal: [-1.0000000e+00  1.2246468e-16], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(206.565051177078)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(153.434948822922))]
+2026-05-21 21:19:12  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 21:19:12  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 21:19:12  ERROR     Run failed with an unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 243, in <module>
+    friction_cone_wrench_pair = compute_friction_cone_contact_wrench_pair_from_friction_cone(fc, forces_sign)
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 158, in compute_friction_cone_contact_wrench_pair_from_friction_cone
+    force_1 = friction_cone.friction[0] * force_sign
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+TypeError: unsupported operand type(s) for *: 'Force' and 'int'
+

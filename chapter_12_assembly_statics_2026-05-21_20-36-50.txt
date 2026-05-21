@@ -1,0 +1,40 @@
+2026-05-21 20:36:50  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-21_20-36-50.txt
+2026-05-21 20:36:50  INFO      Loaded 2 body/bodies:
+2026-05-21 20:36:50  INFO        Body 1: CoM=(25.0, 35.0) mm, mass=2.0 kg
+2026-05-21 20:36:50  INFO        Body 2: CoM=(66.0, 42.0) mm, mass=10.0 kg
+2026-05-21 20:36:50  INFO      Loaded 4 contact(s):
+2026-05-21 20:36:50  INFO        Body 1 <-> Body 0  at (0.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 20:36:50  INFO        Body 1 <-> Body 2  at (60.0, 60.0) mm  normal=180.0 deg  mu=0.5
+2026-05-21 20:36:50  INFO        Body 2 <-> Body 0  at (60.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 20:36:50  INFO        Body 2 <-> Body 0  at (72.0, 0.0) mm  normal=90.0 deg  mu=0.5
+2026-05-21 20:36:50  INFO      Run completed successfully.
+2026-05-21 20:36:50  INFO      Computed 4 friction cones:
+2026-05-21 20:36:50  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 20:36:50  INFO        Normal: [-1.0000000e+00  1.2246468e-16], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(206.565051177078)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(153.434948822922))]
+2026-05-21 20:36:50  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 20:36:50  INFO        Normal: [6.123234e-17 1.000000e+00], Friction: [Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(116.56505117707799)), Force(magnitude=np.float64(1.118033988749895), direction_degrees=np.float64(63.43494882292201))]
+2026-05-21 20:36:50  INFO      current body id: 1
+2026-05-21 20:36:50  INFO      current body beq: [-0.   -0.   19.62]
+2026-05-21 20:36:50  INFO      current body Aeq: [[ 0.          0.         26.83281573 80.49844719]
+ [-0.5         0.5        -1.         -1.        ]
+ [ 1.          1.         -0.5         0.5       ]]
+2026-05-21 20:36:50  INFO      current body A: [[0. 0. 0. 0.]
+ [0. 0. 0. 0.]
+ [0. 0. 0. 0.]
+ [0. 0. 0. 0.]]
+2026-05-21 20:36:50  INFO      current body b: [0. 0. 0. 0.]
+2026-05-21 20:36:50  INFO      current body id: 2
+2026-05-21 20:36:50  INFO      current body beq: [-0.  -0.  98.1]
+2026-05-21 20:36:50  INFO      current body Aeq: [[53.66563146 53.66563146 64.39875775 64.39875775]
+ [-0.5         0.5        -0.5         0.5       ]
+ [ 1.          1.          1.          1.        ]]
+2026-05-21 20:36:50  INFO      current body A: [[0. 0. 0. 0.]
+ [0. 0. 0. 0.]
+ [0. 0. 0. 0.]
+ [0. 0. 0. 0.]]
+2026-05-21 20:36:50  INFO      current body b: [0. 0. 0. 0.]
+2026-05-21 20:36:50  INFO      Total failure: Form closure is not achieved
+2026-05-21 20:36:50  INFO      current body id: 1
+2026-05-21 20:36:50  INFO      current body k array: {'current_body_k_array': array([ 9.81,  9.81,  0.  , -0.  ]), 'current_body_linprog_result.success': True}
+2026-05-21 20:36:50  INFO      current body id: 2
+2026-05-21 20:36:50  INFO      current body k array: {'current_body_k_array': None, 'current_body_linprog_result.success': False}

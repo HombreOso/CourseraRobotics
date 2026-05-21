@@ -50,7 +50,7 @@ class FrictionCone:
 # I/O
 # ---------------------------------------------------------------------------
 
-def read_bodies(filepath: str = "bodies_static_mass_properties.csv") -> list[Body]:
+def read_bodies(filepath: str = "bodies_static_mass_properties.csv", test_equilibrium: bool = False) -> list[Body]:
     """Read rigid-body mass properties from a CSV file.
 
     The file may contain comment lines starting with '#' anywhere, followed
@@ -64,9 +64,16 @@ def read_bodies(filepath: str = "bodies_static_mass_properties.csv") -> list[Bod
     """
     bodies: list[Body] = []
 
+    if test_equilibrium:
+        filepath = "bodies_static_mass_properties_equilibrium.csv"
+
     with open(filepath, newline="") as f:
-        # Exclude comment lines so DictReader sees only the header and data.
-        non_comment_lines = (line for line in f if not line.lstrip().startswith("#"))
+        # Exclude comment lines (starting with '#') and blank/whitespace-only
+        # lines so DictReader always sees the header as its very first line.
+        non_comment_lines = (
+            line for line in f
+            if line.strip() and not line.lstrip().startswith("#")
+        )
         reader = csv.DictReader(non_comment_lines)
         for row in reader:
             bodies.append(Body(
@@ -81,7 +88,7 @@ def read_bodies(filepath: str = "bodies_static_mass_properties.csv") -> list[Bod
     return bodies
 
 
-def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDescription]:
+def read_contacts(filepath: str = "contacts_description.csv", test_equilibrium: bool = False) -> list[ContactDescription]:
     """Read contact descriptions from a CSV file.
 
     The file may contain comment lines starting with '#' anywhere, followed
@@ -101,8 +108,14 @@ def read_contacts(filepath: str = "contacts_description.csv") -> list[ContactDes
     """
     contacts: list[ContactDescription] = []
 
+    if test_equilibrium:
+        filepath = "contacts_description_equilibrium.csv"
+
     with open(filepath, newline="") as f:
-        non_comment_lines = (line for line in f if not line.lstrip().startswith("#"))
+        non_comment_lines = (
+            line for line in f
+            if line.strip() and not line.lstrip().startswith("#")
+        )
         reader = csv.DictReader(non_comment_lines)
         for row in reader:
             contacts.append(ContactDescription(
@@ -134,7 +147,8 @@ def compute_planar_friction_cone_from_contact(contact: ContactDescription, frict
     return FrictionCone(normal=normal_force, friction=[friction_force_1, friction_force_2], x_contact=contact.x, y_contact=contact.y, body_A_id=contact.body_A, body_B_id=contact.body_B)
 
 
-def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: FrictionCone) -> tuple[np.ndarray, np.ndarray]:
+def compute_friction_cone_contact_wrench_pair_from_friction_cone(
+    friction_cone: FrictionCone, force_sign: int) -> tuple[np.ndarray, np.ndarray]:
     
     """Compute the planar contact wrench pair for a single friction cone.
 
@@ -152,12 +166,19 @@ def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: 
     angle_1 = np.radians(force_1.direction_degrees)
     angle_2 = np.radians(force_2.direction_degrees)
 
-    wrench_1 = np.array([x_contact * np.sin(angle_1) - y_contact * np.cos(angle_1), 
-    force_1.magnitude * np.cos(angle_1), 
-    force_1.magnitude * np.sin(angle_1)])
-    wrench_2 = np.array([x_contact * np.sin(angle_2) - y_contact * np.cos(angle_2), 
-    force_2.magnitude * np.cos(angle_2), 
-    force_2.magnitude * np.sin(angle_2)])
+    # Planar wrench  F = [m_z, f_x, f_y]   with   m_z = x·f_y − y·f_x.
+    # Force vector along this friction-cone edge is magnitude·(cos θ, sin θ),
+    # so the moment about the origin is magnitude·(x·sin θ − y·cos θ).
+    wrench_1 = np.array([
+        force_1.magnitude * (x_contact * np.sin(angle_1) - y_contact * np.cos(angle_1)),
+        force_1.magnitude * np.cos(angle_1),
+        force_1.magnitude * np.sin(angle_1),
+    ]) * force_sign
+    wrench_2 = np.array([
+        force_2.magnitude * (x_contact * np.sin(angle_2) - y_contact * np.cos(angle_2)),
+        force_2.magnitude * np.cos(angle_2),
+        force_2.magnitude * np.sin(angle_2),
+    ]) * force_sign
     return (wrench_1, wrench_2)
 # ---------------------------------------------------------------------------
 # Entry point
@@ -166,6 +187,8 @@ def compute_friction_cone_contact_wrench_pair_from_friction_cone(friction_cone: 
 if __name__ == "__main__":
     import logging
     import traceback
+
+    test_equilibrium = True
 
     # ------------------------------------------------------------------
     # Logging setup — one handler writes to the console, another to a
@@ -189,8 +212,8 @@ if __name__ == "__main__":
     log.info("Run started — log file: %s", log_filename)
 
     try:
-        bodies   = read_bodies()
-        contacts = read_contacts()
+        bodies   = read_bodies(test_equilibrium=test_equilibrium)
+        contacts = read_contacts(test_equilibrium=test_equilibrium)
 
         log.info("Loaded %d body/bodies:", len(bodies))
         for b in bodies:
@@ -226,20 +249,27 @@ if __name__ == "__main__":
         total_success = True
         for body in bodies:
             current_body_id = body.body_id
-            current_body_gravity_wrench = np.array([0, 0, -body.mass * 9.81])
+            # Gravity force on the body is (0, −m·g) acting at its CoM.  The
+            # corresponding planar wrench about the world origin is
+            #   m_z = x_com·f_y − y_com·f_x = −m·g·x_com
+            #   f_x = 0
+            #   f_y = −m·g
+            current_body_gravity_wrench = np.array([
+                -body.mass * 9.81 * body.x_com,
+                0.0,
+                -body.mass * 9.81,
+            ])
             current_body_contact_list = [c for c in contacts if c.body_A == current_body_id or c.body_B == current_body_id]
             current_body_friction_cones = [fc for fc in friction_cones if fc.body_A_id == current_body_id or fc.body_B_id == current_body_id]
             current_body_wrenches = []
             for fc in current_body_friction_cones:
                 forces_sign = -1 if fc.body_B_id == current_body_id else 1
-                friction_cone_wrench_pair = compute_friction_cone_contact_wrench_pair_from_friction_cone(fc) * forces_sign
+                friction_cone_wrench_pair = compute_friction_cone_contact_wrench_pair_from_friction_cone(fc, forces_sign)
                 
                 current_body_wrenches += friction_cone_wrench_pair
             
             current_body_beq = (-1) * current_body_gravity_wrench
             current_body_Aeq = np.array(current_body_wrenches).transpose()
-            current_body_A = np.eye(len(current_body_wrenches)) * (-1)
-            current_body_b = np.full(len(current_body_wrenches), -1.0)
             current_body_f = np.full(len(current_body_wrenches), 1.0)
             print("current body id: ", current_body_id)
             print("current body beq: ", current_body_beq)
@@ -247,35 +277,40 @@ if __name__ == "__main__":
             log.info("current body id: %d", current_body_id)
             log.info("current body beq: %s", current_body_beq)
             log.info("current body Aeq: %s", current_body_Aeq)
-            log.info("current body A: %s", current_body_A)
-            log.info("current body b: %s", current_body_b)
+           
             current_body_linprog_result = linprog(
-                c=current_body_f, 
-                A_ub=current_body_A, 
-                b_ub=current_body_b, 
+                c=current_body_f,  
                 A_eq=current_body_Aeq, 
-                b_eq=current_body_beq)
+                b_eq=current_body_beq,
+                method="highs-ds")
             current_body_k_array = current_body_linprog_result.x
-            current_body_k_array_dict[current_body_id] = {
-                current_body_k_array: current_body_k_array,
-                current_body_linprog_result.success: current_body_linprog_result.success,
-            
+            resulting_body_k_arrays_dict[current_body_id] = {
+                "current_body_k_array": current_body_k_array,   
             }
-            total_success = total_success and current_body_linprog_result.success
+        total_success = True
+        for body in bodies:
+            current_body_id = body.body_id
+            current_body_k_array = resulting_body_k_arrays_dict[current_body_id]
+            print("current body id: ", current_body_id)
+            print("current body k array: ", current_body_k_array)
+            log.info("current body id: %d", current_body_id)
+            log.info("current body k array: %s", current_body_k_array)
+            if current_body_k_array["current_body_k_array"] is not None:
+                print("current body k array is not None -> Equilibrium is achieved")
+                log.info("current body k array is not None -> Equilibrium is achieved")
+            else:
+                print("current body k array is None -> Equilibrium is not achieved")
+                log.info("current body k array is None -> Equilibrium is not achieved")
+            total_success = total_success and (current_body_k_array["current_body_k_array"] is not None)
+        
+        print("\n\n\n############## RESULT OF THE EQUILIBRIUM CHECK ################\n\n\n")
+        log.info("\n\n\n############## RESULT OF THE EQUILIBRIUM CHECK ################\n\n\n")
         if total_success:
-            print("Total success: Form closure is achieved")
-            log.info("Total success: Form closure is achieved")
+            print("Total success: Equilibrium is achieved")
+            log.info("Total success: Equilibrium is achieved")
         else:
-            print("Total failure: Form closure is not achieved")
-            log.info("Total failure: Form closure is not achieved")
-            for body in bodies:
-                current_body_id = body.body_id
-                current_body_k_array = current_body_k_array_dict[current_body_id]
-                print("current body id: ", current_body_id)
-                print("current body k array: ", current_body_k_array)
-                log.info("current body id: %d", current_body_id)
-                log.info("current body k array: %s", current_body_k_array)
-
+            print("Total failure: Equilibrium is not achieved")
+            log.info("Total failure: Equilibrium is not achieved")
 
     except Exception:
         # Log the full traceback so the txt file contains enough detail to

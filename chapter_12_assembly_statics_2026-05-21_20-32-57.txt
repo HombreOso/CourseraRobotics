@@ -1,0 +1,10 @@
+2026-05-21 20:32:57  INFO      Run started — log file: chapter_12_assembly_statics_2026-05-21_20-32-57.txt
+2026-05-21 20:32:57  ERROR     Run failed with an unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 193, in <module>
+    contacts = read_contacts()
+  File "C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\chapter_12_peer_assembly_statics.py", line 109, in read_contacts
+    body_A=int(row["body_A"]),
+               ~~~^^^^^^^^^^
+KeyError: 'body_A'
+

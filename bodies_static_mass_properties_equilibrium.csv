@@ -13,8 +13,11 @@
 #   Body 2 — vertical rectangular block standing on the ground.
 #             Left face receives the push from Body 1 at (60, 60).
 #             Bottom edge rests on the ground at x = 60 and x = 72.
-#
-body_id,x_com,y_com,mass
-1,25,35,2.0
-2,66,42,5.0
 
+body_id,x_com,y_com,mass
+
+# comment out the case which is out of scope
+
+# case 2 - equilibrium
+1,25,35,2.0
+2,66,42,10.0
