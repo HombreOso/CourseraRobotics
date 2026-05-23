@@ -1,0 +1,20 @@
+# Static mass properties of each rigid body in the assembly.
+# Body 0 is the stationary ground (not listed — infinite mass, fixed).
+# Columns:
+#   body_id  : integer label (1 = body 1, 2 = body 2, ...)
+#   x_com    : x-coordinate of the center of mass [mm]
+#   y_com    : y-coordinate of the center of mass [mm]
+#   mass     : total mass [kg]
+#
+# Physical scenario (matches 2026-05-20_Example_image_assembly_statics.png):
+#   Body 1 — diagonal bar leaning against Body 2.
+#             Lower-left corner rests on the ground at (5, 0).
+#             Upper-right corner presses against Body 2 at (60, 60).
+#   Body 2 — vertical rectangular block standing on the ground.
+#             Left face receives the push from Body 1 at (60, 60).
+#             Bottom edge rests on the ground at x = 60 and x = 72.
+#
+body_id,x_com,y_com,mass
+1,40,37,10000.0
+2,132,37,10000.0
+3,86,57.5,2.0
