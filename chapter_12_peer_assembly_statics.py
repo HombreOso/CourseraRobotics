@@ -6,7 +6,6 @@ from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import modern_robotics as mr
 from scipy.optimize import linprog
 
 
@@ -50,7 +49,7 @@ class FrictionCone:
 # I/O
 # ---------------------------------------------------------------------------
 
-def read_bodies(filepath: str = "bodies_static_mass_properties.csv", test_equilibrium: bool = False) -> list[Body]:
+def read_bodies(filepath: str = "bodies_static_mass_properties.csv", test_equilibrium: bool = False, use_assembly_from_book: bool = False) -> list[Body]:
     """Read rigid-body mass properties from a CSV file.
 
     The file may contain comment lines starting with '#' anywhere, followed
@@ -64,7 +63,9 @@ def read_bodies(filepath: str = "bodies_static_mass_properties.csv", test_equili
     """
     bodies: list[Body] = []
 
-    if test_equilibrium:
+    if use_assembly_from_book:
+        filepath = "bodies_static_masses_customized.csv"
+    elif test_equilibrium:
         filepath = "bodies_static_mass_properties_equilibrium.csv"
 
     with open(filepath, newline="") as f:
@@ -88,7 +89,7 @@ def read_bodies(filepath: str = "bodies_static_mass_properties.csv", test_equili
     return bodies
 
 
-def read_contacts(filepath: str = "contacts_description.csv", test_equilibrium: bool = False) -> list[ContactDescription]:
+def read_contacts(filepath: str = "contacts_description.csv", test_equilibrium: bool = False, use_assembly_from_book: bool = False) -> list[ContactDescription]:
     """Read contact descriptions from a CSV file.
 
     The file may contain comment lines starting with '#' anywhere, followed
@@ -108,7 +109,9 @@ def read_contacts(filepath: str = "contacts_description.csv", test_equilibrium: 
     """
     contacts: list[ContactDescription] = []
 
-    if test_equilibrium:
+    if use_assembly_from_book:
+        filepath = "contacts_description_customized.csv"
+    elif test_equilibrium:
         filepath = "contacts_description_equilibrium.csv"
 
     with open(filepath, newline="") as f:
@@ -149,7 +152,7 @@ def compute_planar_friction_cone_from_contact(contact: ContactDescription, frict
 
 def compute_friction_cone_contact_wrench_pair_from_friction_cone(
     friction_cone: FrictionCone, force_sign: int) -> tuple[np.ndarray, np.ndarray]:
-    
+
     """Compute the planar contact wrench pair for a single friction cone.
 
     Args:
@@ -189,6 +192,7 @@ if __name__ == "__main__":
     import traceback
 
     test_equilibrium = True
+    use_assembly_from_book = True
 
     # ------------------------------------------------------------------
     # Logging setup — one handler writes to the console, another to a
@@ -212,8 +216,8 @@ if __name__ == "__main__":
     log.info("Run started — log file: %s", log_filename)
 
     try:
-        bodies   = read_bodies(test_equilibrium=test_equilibrium)
-        contacts = read_contacts(test_equilibrium=test_equilibrium)
+        bodies   = read_bodies(test_equilibrium=test_equilibrium, use_assembly_from_book=use_assembly_from_book)
+        contacts = read_contacts(test_equilibrium=test_equilibrium, use_assembly_from_book=use_assembly_from_book)
 
         log.info("Loaded %d body/bodies:", len(bodies))
         for b in bodies:
@@ -243,7 +247,7 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------------
 
         # Objective: minimise the sum of all coefficients kᵢ (linear, all ones).
-        
+
         equality_constraints = []
         resulting_body_k_arrays_dict = {}
         total_success = True
@@ -265,9 +269,9 @@ if __name__ == "__main__":
             for fc in current_body_friction_cones:
                 forces_sign = -1 if fc.body_B_id == current_body_id else 1
                 friction_cone_wrench_pair = compute_friction_cone_contact_wrench_pair_from_friction_cone(fc, forces_sign)
-                
+
                 current_body_wrenches += friction_cone_wrench_pair
-            
+
             current_body_beq = (-1) * current_body_gravity_wrench
             current_body_Aeq = np.array(current_body_wrenches).transpose()
             current_body_f = np.full(len(current_body_wrenches), 1.0)
@@ -277,15 +281,15 @@ if __name__ == "__main__":
             log.info("current body id: %d", current_body_id)
             log.info("current body beq: %s", current_body_beq)
             log.info("current body Aeq: %s", current_body_Aeq)
-           
+
             current_body_linprog_result = linprog(
-                c=current_body_f,  
-                A_eq=current_body_Aeq, 
+                c=current_body_f,
+                A_eq=current_body_Aeq,
                 b_eq=current_body_beq,
                 method="highs-ds")
             current_body_k_array = current_body_linprog_result.x
             resulting_body_k_arrays_dict[current_body_id] = {
-                "current_body_k_array": current_body_k_array,   
+                "current_body_k_array": current_body_k_array,
             }
         total_success = True
         for body in bodies:
@@ -302,7 +306,7 @@ if __name__ == "__main__":
                 print("current body k array is None -> Equilibrium is not achieved")
                 log.info("current body k array is None -> Equilibrium is not achieved")
             total_success = total_success and (current_body_k_array["current_body_k_array"] is not None)
-        
+
         print("\n\n\n############## RESULT OF THE EQUILIBRIUM CHECK ################\n\n\n")
         log.info("\n\n\n############## RESULT OF THE EQUILIBRIUM CHECK ################\n\n\n")
         if total_success:
@@ -317,4 +321,3 @@ if __name__ == "__main__":
         # diagnose the failure without needing to re-run the script.
         log.error("Run failed with an unhandled exception:\n%s", traceback.format_exc())
         raise   # re-raise so the process exits with a non-zero return code
-
