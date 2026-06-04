@@ -63,3 +63,12 @@ def F6() -> np.ndarray:
     """Return the (6 x 4) extended chassis velocity matrix."""
     zeros = np.zeros((1, 4))
     return np.vstack([zeros, zeros, F, zeros])   # shape (6, 4)
+
+# ---------------------------------------------------------------------------
+# Gripper geometry (meters)
+# ---------------------------------------------------------------------------
+d1_min = 0.02   # minimum opening distance between finger tips
+d1_max = 0.07   # maximum opening distance between finger tips
+d2     = 0.035  # interior length of the fingers
+d3     = 0.043  # distance from finger base to end-effector frame {e}
+
