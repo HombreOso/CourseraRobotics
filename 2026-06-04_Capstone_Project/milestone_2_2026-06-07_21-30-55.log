@@ -1,0 +1,14 @@
+2026-06-07 21:30:55  INFO      Log file: C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-06-04_Capstone_Project\milestone_2_2026-06-07_21-30-55.log
+2026-06-07 21:30:55  INFO      === Milestone 2 – Reference Trajectory Generation ===
+2026-06-07 21:30:55  INFO      TrajectoryGenerator  k=1  v_max=0.50 m/s  w_max=1.00 rad/s  method=5
+2026-06-07 21:30:55  INFO        Seg 1 – initial → standoff_i            Tf=2.110 s  rows=212
+2026-06-07 21:30:55  INFO        Seg 2 – standoff_i → grasp_i            Tf=0.300 s  rows=30
+2026-06-07 21:30:55  INFO        Seg 3 – gripper CLOSE (0.625 s)         Tf=0.625 s  rows=62
+2026-06-07 21:30:55  INFO        Seg 4 – grasp_i → standoff_i            Tf=0.300 s  rows=30
+2026-06-07 21:30:56  INFO        Seg 5 – standoff_i → standoff_f         Tf=2.830 s  rows=283
+2026-06-07 21:30:56  INFO        Seg 6 – standoff_f → grasp_f            Tf=0.300 s  rows=30
+2026-06-07 21:30:56  INFO        Seg 7 – gripper OPEN  (0.625 s)         Tf=0.625 s  rows=62
+2026-06-07 21:30:56  INFO        Seg 8 – grasp_f → standoff_f            Tf=0.300 s  rows=30
+2026-06-07 21:30:56  INFO      TrajectoryGenerator  total rows = 739
+2026-06-07 21:30:56  INFO      CSV written → milestone_2_trajectory.csv  (739 rows)
+2026-06-07 21:30:56  INFO      Done.  739 trajectory rows written.
