@@ -1,0 +1,32 @@
+2026-06-08 23:05:23  INFO      Log file: C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-06-04_Capstone_Project\capstone_2026-06-08_23-05-23.log
+2026-06-08 23:05:23  INFO      ============================================================
+2026-06-08 23:05:23  INFO      Capstone Full Program – youBot Mobile Manipulation
+2026-06-08 23:05:23  INFO      ============================================================
+2026-06-08 23:05:23  INFO      Gains: Kp=2.0·I  Ki=0.0·I
+2026-06-08 23:05:23  INFO      Initial T_se computed from FK:
+[[ 0.17    0.      0.9854  0.3868]
+ [ 0.      1.      0.      0.    ]
+ [-0.9854  0.      0.17    0.5702]
+ [ 0.      0.      0.      1.    ]]
+2026-06-08 23:05:23  INFO      Generating reference trajectory …
+2026-06-08 23:05:23  INFO      Reference trajectory: 674 configurations  (6.73 s total)
+2026-06-08 23:05:23  INFO      Starting control loop: 673 iterations …
+2026-06-08 23:05:23  INFO        step    67 / 673   |Xerr|=0.0033
+2026-06-08 23:05:23  INFO        step   134 / 673   |Xerr|=0.0019
+2026-06-08 23:05:24  INFO        step   201 / 673   |Xerr|=0.0015
+2026-06-08 23:05:24  INFO        step   268 / 673   |Xerr|=0.0030
+2026-06-08 23:05:24  INFO        step   335 / 673   |Xerr|=0.0007
+2026-06-08 23:05:24  INFO        step   402 / 673   |Xerr|=0.0002
+2026-06-08 23:05:24  INFO        step   469 / 673   |Xerr|=0.0005
+2026-06-08 23:05:25  INFO        step   536 / 673   |Xerr|=0.0002
+2026-06-08 23:05:25  INFO        step   603 / 673   |Xerr|=0.0024
+2026-06-08 23:05:25  INFO        step   670 / 673   |Xerr|=0.0042
+2026-06-08 23:05:25  INFO      Control loop complete.  Final |Xerr| = 0.0039
+2026-06-08 23:05:25  INFO      Robot config CSV → capstone_trajectory.csv  (674 rows)
+2026-06-08 23:05:25  INFO      Xerr CSV         → capstone_Xerr.csv  (673 rows)
+2026-06-08 23:05:25  INFO      Simulation complete.
+2026-06-08 23:05:25  INFO        Configuration rows : 674
+2026-06-08 23:05:25  INFO        Error rows         : 673
+2026-06-08 23:05:25  INFO        Final robot config : [-6.4254e-01 -1.3313e-01 -3.9647e-01 -9.2826e-01 -1.4110e+00 -9.3156e-01
+  7.7175e-01 -3.6289e-16  1.7376e+01 -1.7036e+01  6.9598e+00 -6.6199e+00
+  0.0000e+00]
