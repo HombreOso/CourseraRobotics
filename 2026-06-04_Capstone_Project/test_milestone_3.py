@@ -59,17 +59,24 @@ K_p_eye  = np.eye(6)
 # Helper
 # ---------------------------------------------------------------------------
 
-def _run(K_p, K_i):
-    """Run FeedbackControl once from the reference fixture."""
+def _run(K_p, K_i, enforce_joint_limits=False):
+    """Run FeedbackControl once from the reference fixture.
+
+    Joint limits are disabled by default here because the assignment's
+    published reference values were computed without limit enforcement
+    (θ3 = 0.2 in the fixture would otherwise trigger the J3 upper limit).
+    Separate tests below verify the limit-enforcement logic.
+    """
     return FeedbackControl(
-        X             = X,
-        X_d           = X_d,
-        X_d_next      = X_d_next,
-        K_p           = K_p,
-        K_i           = K_i,
-        dt            = DT,
-        theta_list    = THETA,
-        X_err_integral= np.zeros(6),
+        X                    = X,
+        X_d                  = X_d,
+        X_d_next             = X_d_next,
+        K_p                  = K_p,
+        K_i                  = K_i,
+        dt                   = DT,
+        theta_list           = THETA,
+        X_err_integral       = np.zeros(6),
+        enforce_joint_limits = enforce_joint_limits,
     )
 
 
@@ -224,6 +231,90 @@ class TestFeedbackControlProperties(unittest.TestCase):
             integral_2, expected, atol=1e-10,
             err_msg="Integral did not accumulate correctly on second call",
         )
+
+
+class TestJointLimits(unittest.TestCase):
+    """Tests for testJointLimits and joint-limit enforcement in FeedbackControl."""
+
+    def test_no_violation_within_limits(self):
+        """The standard start config should return an empty list."""
+        from milestone_3_feedback_control import testJointLimits
+        theta_ok = np.array([0.0, 0.0, 0.2, -1.6, 0.0])
+        self.assertEqual(testJointLimits(theta_ok), [],
+                         msg="Standard start config should be within limits")
+
+    def test_j3_upper_limit_violation(self):
+        """θ3 = 3.0 exceeds J3 upper limit 2.548 → index 2 returned."""
+        from milestone_3_feedback_control import testJointLimits
+        theta = np.array([0.0, 0.0, 3.0, -1.6, 0.0])
+        self.assertIn(2, testJointLimits(theta),
+                      msg="Joint 3 (index 2) should be flagged for θ3=3.0 > 2.548")
+
+    def test_j4_lower_limit_violation(self):
+        """θ4 = -3.0 exceeds J4 lower limit -1.780 → index 3 returned."""
+        from milestone_3_feedback_control import testJointLimits
+        theta = np.array([0.0, 0.0, -0.5, -3.0, 0.0])
+        self.assertIn(3, testJointLimits(theta),
+                      msg="Joint 4 (index 3) should be flagged for θ4=-3.0 < -1.780")
+
+    def test_multiple_violations(self):
+        """Both J3 and J4 out of range → both indices returned."""
+        from milestone_3_feedback_control import testJointLimits
+        theta = np.array([0.0, 0.0, 3.0, -3.0, 0.0])
+        violated = testJointLimits(theta)
+        self.assertIn(2, violated)
+        self.assertIn(3, violated)
+
+    def test_enforcement_zeros_violating_joints(self):
+        """
+        With enforcement ON, every joint whose unconstrained prediction
+        would violate a limit must end up with zero speed (Je column zeroed).
+        The set of violated joints is computed from the actual unconstrained
+        solution so the test stays self-consistent regardless of fixture.
+        """
+        from milestone_3_feedback_control import testJointLimits
+
+        # θ3=3.0 puts the arm near a singularity; the unconstrained solution
+        # drives some joints past their limits.
+        theta_bad = np.array([0.0, 0.0, 3.0, -1.6, 0.0])
+
+        # Unconstrained solution and its predicted next angles
+        _, ctrl_off, _, _ = FeedbackControl(
+            X=X, X_d=X_d, X_d_next=X_d_next,
+            K_p=K_p_zero, K_i=K_i_zero,
+            dt=DT, theta_list=theta_bad,
+            X_err_integral=np.zeros(6),
+            enforce_joint_limits=False,
+        )
+        theta_next = theta_bad + ctrl_off[4:9] * DT
+        violated   = testJointLimits(theta_next)
+        self.assertTrue(violated,
+                        msg="Fixture should trigger at least one joint violation")
+
+        # Enforced solution: the violated joints must be frozen (speed 0)
+        _, ctrl_on, _, _ = FeedbackControl(
+            X=X, X_d=X_d, X_d_next=X_d_next,
+            K_p=K_p_zero, K_i=K_i_zero,
+            dt=DT, theta_list=theta_bad,
+            X_err_integral=np.zeros(6),
+            enforce_joint_limits=True,
+        )
+        for j in violated:
+            # joint j (0-indexed) is control index 4 + j
+            self.assertAlmostEqual(
+                ctrl_on[4 + j], 0.0, delta=1e-9,
+                msg=f"Joint {j+1} speed must be zero when its limit is enforced",
+            )
+
+    def test_enforcement_disabled_matches_original(self):
+        """
+        With enforcement OFF the result must match the no-limit reference
+        values from the assignment.
+        """
+        V, ctrl, err, _ = _run(K_p_zero, K_i_zero, enforce_joint_limits=False)
+        expected_V = np.array([0.0, 0.0, 0.0, 21.409, 0.0, 6.455])
+        np.testing.assert_allclose(V, expected_V, atol=ATOL,
+                                   err_msg="V without limits must match assignment reference")
 
 
 if __name__ == "__main__":

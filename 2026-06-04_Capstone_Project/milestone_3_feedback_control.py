@@ -145,6 +145,97 @@ def _build_logger(name: str = "milestone_3") -> logging.Logger:
 
 logger = _build_logger()
 
+# #region agent log
+import json as _json, time as _time
+_DBG_PATH = r"c:\Users\admin\Documents\Robotics\Code\CourseraRobotics\debug-84c695.log"
+_DBG_COUNT = [0]
+def _dbg(location, message, data, hypothesis):
+    if _DBG_COUNT[0] >= 400:
+        return
+    _DBG_COUNT[0] += 1
+    try:
+        with open(_DBG_PATH, "a", encoding="utf-8") as _f:
+            _f.write(_json.dumps({"sessionId": "84c695", "location": location,
+                                  "message": message, "data": data,
+                                  "hypothesisId": hypothesis,
+                                  "timestamp": int(_time.time() * 1000)}) + "\n")
+    except OSError:
+        pass
+# #endregion
+
+
+# ---------------------------------------------------------------------------
+# Joint limits  (avoid self-collisions and singularities)
+# ---------------------------------------------------------------------------
+# Physical background
+# -------------------
+# The youBot arm has 5 revolute joints, each with a mechanical range of
+# travel.  Driving a joint past its physical stop is impossible on the
+# real robot, and certain extreme angles fold the links into the mobile
+# base (self-collision).  We therefore clamp each joint to the KUKA
+# youBot's published mechanical joint limits.
+#
+# IMPORTANT — initial configuration must satisfy these limits.
+# The assignment warns: if the robot's starting joint angles already lie
+# outside the limits, the enforcement logic freezes those joints (their
+# Je column is zeroed) so they can NEVER move.  The arm then loses a
+# degree of freedom and the mobile base over-drives to compensate,
+# producing huge / mismatched wheel rotations.  The standard initial
+# arm config (J3 = +0.2, J4 = -1.6) lies comfortably inside the limits
+# below.
+#
+# Enforcement strategy (assignment specification)
+# -----------------------------------------------
+# After computing the initial controls with pinv(Je):
+#   1. Predict the next joint angles:  θ_new = θ + θ̇·Δt
+#   2. Find joints where θ_new would violate a limit.
+#   3. Zero the Je COLUMNS corresponding to those joints.
+#      Zeroing column i says "joint i contributes nothing to V",
+#      so the pseudoinverse will assign it zero speed.
+#   4. Recompute controls = pinv(Je_modified) @ V.
+#
+# This is the simplest safe strategy.  More sophisticated approaches
+# (e.g. gradient projection, null-space control) can allow a joint to
+# back away from a limit while still achieving the end-effector motion.
+
+# (lower_rad, upper_rad) for joints 1–5  (index 0–4)
+# Values are the KUKA youBot's mechanical joint limits.
+JOINT_LIMITS: list[tuple[float, float]] = [
+    (-2.932,  2.932),   # J1
+    (-1.117,  1.553),   # J2
+    (-2.635,  2.548),   # J3  (allows the standard +0.2 start)
+    (-1.780,  1.780),   # J4  (allows the standard -1.6 start)
+    (-2.923,  2.923),   # J5
+]
+
+
+def testJointLimits(theta_list: np.ndarray) -> list[int]:
+    """
+    Return the 0-indexed list of arm joints whose angles violate the
+    configured limits.
+
+    Parameters
+    ----------
+    theta_list : (5,) array of current arm joint angles [J1…J5] (rad)
+
+    Returns
+    -------
+    violated : list[int]  — 0-indexed joint indices that are outside limits.
+               Empty list means all joints are within bounds.
+
+    Examples
+    --------
+    >>> testJointLimits(np.array([0, 0, 0.2, -1.6, 0]))
+    []    # standard start: all joints within limits
+    >>> testJointLimits(np.array([0, 0, 3.0, -1.6, 0]))
+    [2]   # J3 (index 2) exceeds its upper limit 2.548
+    """
+    violated = []
+    for i, (theta, (lo, hi)) in enumerate(zip(theta_list, JOINT_LIMITS)):
+        if theta < lo or theta > hi:
+            violated.append(i)
+    return violated
+
 
 # ---------------------------------------------------------------------------
 # Mobile-manipulator Jacobian
@@ -213,19 +304,20 @@ def _mobile_manipulator_jacobian(theta_list: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def FeedbackControl(
-    X:             np.ndarray,
-    X_d:           np.ndarray,
-    X_d_next:      np.ndarray,
-    K_p:           np.ndarray,
-    K_i:           np.ndarray,
-    dt:            float,
-    theta_list:    np.ndarray,
-    X_err_integral: np.ndarray,
+    X:                    np.ndarray,
+    X_d:                  np.ndarray,
+    X_d_next:             np.ndarray,
+    K_p:                  np.ndarray,
+    K_i:                  np.ndarray,
+    dt:                   float,
+    theta_list:           np.ndarray,
+    X_err_integral:       np.ndarray,
+    enforce_joint_limits: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute the commanded twist and actuator speeds for one control timestep.
 
-    STEP-BY-STEP PHYSICS
+    PHYSICS
     ---------------------
     Step 1 — Error twist Xerr
         The SE(3) matrix  X⁻¹ Xd  is the pose of the reference frame
@@ -292,9 +384,12 @@ def FeedbackControl(
     X_d_next       : (4,4) SE(3) – reference pose at next timestep T_se_d_next
     K_p            : (6,6) proportional gain matrix (diagonal recommended)
     K_i            : (6,6) integral gain matrix (diagonal recommended)
-    dt             : float – timestep Δt (s), must match trajectory resolution
-    theta_list     : (5,) current arm joint angles [J1…J5] (rad)
-    X_err_integral : (6,) running integral of Xerr from all previous steps
+    dt                   : float – timestep Δt (s), must match trajectory resolution
+    theta_list           : (5,) current arm joint angles [J1…J5] (rad)
+    X_err_integral       : (6,) running integral of Xerr from all previous steps
+    enforce_joint_limits : bool – if True (default), zero out Je columns for joints
+                           predicted to violate JOINT_LIMITS after this step, then
+                           recompute the pseudoinverse.  Set False to disable.
 
     Returns
     -------
@@ -351,10 +446,82 @@ def FeedbackControl(
     # np.linalg.pinv gives the minimum-norm solution — the actuator
     # speeds closest to zero that still achieve V exactly (in a least-
     # squares sense when Je is numerically rank-deficient).
+    #
+    # Joint-limit enforcement (optional, enabled by default)
+    # -------------------------------------------------------
+    # After a first-pass pinv solution we predict where each joint will
+    # be after one timestep.  Any joint predicted to leave its allowed
+    # range has its Je column zeroed.  Zeroing column (4+i) tells the
+    # pseudoinverse "joint i is frozen — assign it zero speed and let
+    # the wheels/other joints compensate".  We then recompute pinv on
+    # the modified Je.
+    #
+    # Why zero the column rather than just clamping the speed?
+    #   Clamping θ̇_i after the fact changes the solution without
+    #   re-distributing the work — the other actuators still try to
+    #   produce the original V with one less degree of freedom, which
+    #   leads to end-effector errors.  Zeroing the column first lets
+    #   the pseudoinverse re-distribute effort to the remaining free
+    #   actuators so they still best-approximate V.
     # ------------------------------------------------------------------
-    Je      = _mobile_manipulator_jacobian(theta_list)          # 6×9
-    Je_pinv = np.linalg.pinv(Je)                                # 9×6
-    controls = Je_pinv @ V                                      # (9,)
+    Je = _mobile_manipulator_jacobian(theta_list)               # 6×9
+
+    if enforce_joint_limits:
+        # Iterative enforcement (fixes two confirmed bugs):
+        #
+        # Fix 1 — direction-aware freezing:
+        #   Only freeze a joint if its commanded speed drives it FURTHER
+        #   out of range.  A joint that is past a limit but commanded to
+        #   move back toward the legal range must stay free, otherwise it
+        #   is trapped outside its limits forever.
+        #
+        # Fix 2 — re-check after every recompute:
+        #   Zeroing a column changes the pseudoinverse solution; the new
+        #   solution can itself violate limits for other joints (and can
+        #   blow up when the modified Jacobian is near-singular).  We
+        #   therefore loop: solve → freeze offending joints → re-solve,
+        #   until no joint is commanded to cross a limit.  The loop is
+        #   bounded by the 5 arm joints.
+        Je_work = Je.copy()
+        frozen: list[int] = []
+        for _pass in range(5):
+            controls   = np.linalg.pinv(Je_work) @ V            # (9,)
+            theta_next = theta_list + controls[4:9] * dt         # (5,)
+
+            to_freeze = []
+            for j in testJointLimits(theta_next):
+                if j in frozen:
+                    continue
+                lo, hi = JOINT_LIMITS[j]
+                spd = controls[4 + j]
+                # Freeze only when moving further out of range
+                if (theta_next[j] > hi and spd > 0) or (theta_next[j] < lo and spd < 0):
+                    to_freeze.append(j)
+
+            # #region agent log
+            _already_out = testJointLimits(theta_list)
+            if to_freeze or (_pass > 0 and float(np.max(np.abs(controls))) > 100.0):
+                _dbg("milestone_3_feedback_control.py:step5-iter",
+                     "enforcement iteration",
+                     {"pass": _pass, "frozen_so_far": frozen, "to_freeze": to_freeze,
+                      "already_out_at_entry": _already_out,
+                      "theta": [round(float(t), 4) for t in theta_list],
+                      "theta_next": [round(float(t), 4) for t in theta_next],
+                      "joint_speeds": [round(float(s), 2) for s in controls[4:9]],
+                      "max_abs_control": round(float(np.max(np.abs(controls))), 1)},
+                     "H1+H2-fix")
+            # #endregion
+
+            if not to_freeze:
+                break
+
+            logger.debug("Joint limit enforcement pass %d: freezing joints %s",
+                         _pass, to_freeze)
+            for j in to_freeze:
+                Je_work[:, 4 + j] = 0.0   # column 4+j = arm joint j (0-indexed)
+                frozen.append(j)
+    else:
+        controls = np.linalg.pinv(Je) @ V                      # (9,)
 
     logger.debug(
         "Xerr=%s  Vd=%s  V=%s  controls=%s",

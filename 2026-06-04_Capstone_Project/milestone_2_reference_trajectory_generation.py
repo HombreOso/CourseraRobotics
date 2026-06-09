@@ -96,6 +96,14 @@ def _segment_duration(
     return round(Tf, 6)
 
 
+def _log_T(label: str, T: np.ndarray) -> None:
+    """Log a 4×4 SE(3) matrix with a label, one row per line."""
+    logger.debug("  %s:", label)
+    for row in T:
+        logger.debug("    [ %8.4f  %8.4f  %8.4f  %8.4f ]",
+                     row[0], row[1], row[2], row[3])
+
+
 def _T_to_row(T: np.ndarray, gripper: int) -> list[float]:
     """Flatten an SE(3) matrix + gripper state into a 13-element row."""
     R = T[:3, :3]
@@ -117,9 +125,10 @@ def _motion_segment(
     method:   int,
     gripper:  int,
     include_start: bool = False,
+    cartesian: bool = False,
 ) -> list[list[float]]:
     """
-    Generate rows for one motion segment using ScrewTrajectory.
+    Generate rows for one motion segment.
 
     Parameters
     ----------
@@ -127,10 +136,23 @@ def _motion_segment(
         If True, include the first (start) configuration in the output.
         Only True for the very first segment; all others omit it to avoid
         duplicate rows at segment boundaries.
+    cartesian : bool
+        If True, use mr.CartesianTrajectory (translation and rotation
+        interpolated separately → straight-line tool-tip path).
+        If False (default), use mr.ScrewTrajectory (smooth screw motion).
+
+        Use cartesian=True for straight vertical approach/depart segments
+        (standoff → grasp and grasp → standoff) so the gripper descends
+        and ascends in a straight line and cannot collide with the cube sides.
+        Use cartesian=False for large sweeping motions between distant poses.
     """
     dt   = 0.01 / k
     N    = max(2, round(Tf / dt) + 1)
-    traj = mr.ScrewTrajectory(T_start, T_end, Tf, N, method)
+
+    if cartesian:
+        traj = mr.CartesianTrajectory(T_start, T_end, Tf, N, method)
+    else:
+        traj = mr.ScrewTrajectory(T_start, T_end, Tf, N, method)
 
     start_idx = 0 if include_start else 1
     return [_T_to_row(T, gripper) for T in traj[start_idx:]]
@@ -161,7 +183,7 @@ def TrajectoryGenerator(
     T_sc_initial:  np.ndarray,
     T_sc_final:    np.ndarray,
     T_ce_grasp:    np.ndarray,
-    T_ce_standoff: np.ndarray,
+    T_ce_standoff: np.ndarray = None,
     k:             int   = 1,
     v_max:         float = 0.5,
     w_max:         float = 1.0,
@@ -188,25 +210,44 @@ def TrajectoryGenerator(
         Each row: [r11,r12,r13, r21,r22,r23, r31,r32,r33, px,py,pz, gripper]
     """
     # ------------------------------------------------------------------
-    # Derived key poses
+    # Derived key poses  (all in space frame {s})
     # ------------------------------------------------------------------
+    if T_ce_standoff is None:
+        T_ce_standoff = T_ce_standoff_default
+
     T_se_standoff_i = T_sc_initial @ T_ce_standoff   # standoff above initial cube
     T_se_grasp_i    = T_sc_initial @ T_ce_grasp       # grasp at initial cube
     T_se_standoff_f = T_sc_final   @ T_ce_standoff   # standoff above final cube
     T_se_grasp_f    = T_sc_final   @ T_ce_grasp       # grasp at final cube
 
+    logger.debug("=== Input transforms ===")
+    _log_T("T_se_initial  (EE start, space frame)",    T_se_initial)
+    _log_T("T_sc_initial  (cube initial, space frame)", T_sc_initial)
+    _log_T("T_sc_final    (cube goal, space frame)",    T_sc_final)
+    _log_T("T_ce_grasp    (grasp relative to cube)",    T_ce_grasp)
+    _log_T("T_ce_standoff (standoff relative to cube)", T_ce_standoff)
+
+    logger.debug("=== Derived waypoints (T_se in space frame) ===")
+    _log_T("T_se_standoff_i  (standoff above initial cube)", T_se_standoff_i)
+    _log_T("T_se_grasp_i     (grasp at initial cube)",       T_se_grasp_i)
+    _log_T("T_se_standoff_f  (standoff above final cube)",   T_se_standoff_f)
+    _log_T("T_se_grasp_f     (grasp at final cube)",         T_se_grasp_f)
+
     def dur(A, B):
         return _segment_duration(A, B, v_max, w_max)
 
+    # cartesian=True for straight-line approach/depart (avoids cube collision);
+    # cartesian=False (ScrewTrajectory) for larger sweeping motions.
     segments_meta = [
-        ("Seg 1 – initial → standoff_i",    T_se_initial,    T_se_standoff_i, dur(T_se_initial,    T_se_standoff_i), 0),
-        ("Seg 2 – standoff_i → grasp_i",    T_se_standoff_i, T_se_grasp_i,    dur(T_se_standoff_i, T_se_grasp_i),    0),
-        ("Seg 3 – gripper CLOSE (0.625 s)", None,            None,             0.625,                                 1),
-        ("Seg 4 – grasp_i → standoff_i",    T_se_grasp_i,    T_se_standoff_i, dur(T_se_grasp_i,    T_se_standoff_i), 1),
-        ("Seg 5 – standoff_i → standoff_f", T_se_standoff_i, T_se_standoff_f, dur(T_se_standoff_i, T_se_standoff_f), 1),
-        ("Seg 6 – standoff_f → grasp_f",    T_se_standoff_f, T_se_grasp_f,    dur(T_se_standoff_f, T_se_grasp_f),    1),
-        ("Seg 7 – gripper OPEN  (0.625 s)", None,            None,             0.625,                                 0),
-        ("Seg 8 – grasp_f → standoff_f",    T_se_grasp_f,    T_se_standoff_f, dur(T_se_grasp_f,    T_se_standoff_f), 0),
+        # name,                              T_start,          T_end,             Tf,                                    grip, cartesian
+        ("Seg 1 – initial → standoff_i",    T_se_initial,     T_se_standoff_i,  dur(T_se_initial,    T_se_standoff_i), 0,    False),
+        ("Seg 2 – standoff_i → grasp_i",    T_se_standoff_i,  T_se_grasp_i,     dur(T_se_standoff_i, T_se_grasp_i),   0,    True ),
+        ("Seg 3 – gripper CLOSE (0.625 s)", None,             None,              0.625,                                1,    False),
+        ("Seg 4 – grasp_i → standoff_i",    T_se_grasp_i,     T_se_standoff_i,  dur(T_se_grasp_i,    T_se_standoff_i),1,    True ),
+        ("Seg 5 – standoff_i → standoff_f", T_se_standoff_i,  T_se_standoff_f,  dur(T_se_standoff_i, T_se_standoff_f),1,    False),
+        ("Seg 6 – standoff_f → grasp_f",    T_se_standoff_f,  T_se_grasp_f,     dur(T_se_standoff_f, T_se_grasp_f),  1,    True ),
+        ("Seg 7 – gripper OPEN  (0.625 s)", None,             None,              0.625,                                0,    False),
+        ("Seg 8 – grasp_f → standoff_f",    T_se_grasp_f,     T_se_standoff_f,  dur(T_se_grasp_f,    T_se_standoff_f),0,    True ),
     ]
 
     logger.info("TrajectoryGenerator  k=%d  v_max=%.2f m/s  w_max=%.2f rad/s  method=%d",
@@ -217,7 +258,7 @@ def TrajectoryGenerator(
 
     trajectory: list[list[float]] = []
 
-    for idx, (name, T_start, T_end, Tf, grip) in enumerate(segments_meta):
+    for idx, (name, T_start, T_end, Tf, grip, use_cartesian) in enumerate(segments_meta):
         is_gripper = idx in gripper_indices
         is_first   = (idx == 0)
 
@@ -226,9 +267,17 @@ def TrajectoryGenerator(
             rows   = _gripper_segment(T_hold, grip, k, duration=Tf)
         else:
             rows = _motion_segment(T_start, T_end, Tf, k, method, grip,
-                                   include_start=is_first)
+                                   include_start=is_first, cartesian=use_cartesian)
 
-        logger.info("  %-38s  Tf=%.3f s  rows=%d", name, Tf, len(rows))
+        traj_type = "cartesian" if (not is_gripper and use_cartesian) else ("screw" if not is_gripper else "hold")
+        logger.info("  %-38s  Tf=%.3f s  rows=%4d  [%s]", name, Tf, len(rows), traj_type)
+
+        if not is_gripper:
+            T_log_start = np.eye(4); T_log_start[:3, :3] = np.array(rows[0][:9]).reshape(3, 3);  T_log_start[:3, 3] = rows[0][9:12]
+            T_log_end   = np.eye(4); T_log_end[:3,   :3] = np.array(rows[-1][:9]).reshape(3, 3); T_log_end[:3,   3] = rows[-1][9:12]
+            _log_T(f"    T_se start", T_log_start)
+            _log_T(f"    T_se end  ", T_log_end)
+
         trajectory.extend(rows)
 
     logger.info("TrajectoryGenerator  total rows = %d", len(trajectory))
@@ -251,18 +300,18 @@ def write_trajectory_csv(trajectory: list[list[float]], filepath: str) -> None:
 # Grasp: end-effector approaches from below the cube's +z (tilted down to grab)
 # Rotation: flip z-axis of {e} to point into the cube top face
 T_ce_grasp_default = np.array([
-    [ 0,  0,  1,  0    ],
+    [ -1,  0,  0,  0    ],
     [ 0,  1,  0,  0    ],
-    [-1,  0,  0,  0    ],
+    [0,  0,  -1,  0.018    ],
     [ 0,  0,  0,  1    ],
 ], dtype=float)
 
-# Standoff: same orientation, lifted 0.15 m above the grasp point
+# Standoff: same orientation, lifted 0.15 m above the grasp point (0.018 + 0.15 = 0.168 m)
 T_ce_standoff_default = np.array([
-    [ 0,  0,  1,  0    ],
-    [ 0,  1,  0,  0    ],
-    [-1,  0,  0,  0.15 ],
-    [ 0,  0,  0,  1    ],
+    [ -1,  0,  0,  0     ],
+    [  0,  1,  0,  0     ],
+    [  0,  0, -1,  0.168 ],
+    [  0,  0,  0,  1     ],
 ], dtype=float)
 
 

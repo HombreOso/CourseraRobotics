@@ -133,16 +133,49 @@ def _write_csv(rows: list, filepath: str, label: str) -> None:
 # Main simulation loop
 # ---------------------------------------------------------------------------
 
+def build_trajectory(
+    initial_robot_config: np.ndarray,
+    k:     int   = 1,
+    v_max: float = 0.5,
+    w_max: float = 1.0,
+) -> list:
+    """
+    Generate the 8-segment reference trajectory from the robot's initial
+    end-effector pose (computed via FK from `initial_robot_config`).
+
+    Use this separately when you want to fix the trajectory and then run
+    the simulation with a *different* (e.g. perturbed) starting config.
+
+    Returns
+    -------
+    trajectory : list of N×13 rows
+    """
+    T_se_initial = _robot_state_to_T_se(initial_robot_config)
+    logger.info("build_trajectory: T_se_initial from FK:\n%s",
+                np.array2string(T_se_initial, precision=4))
+    return TrajectoryGenerator(
+        T_se_initial   = T_se_initial,
+        T_sc_initial   = T_sc_initial,
+        T_sc_final     = T_sc_goal,
+        T_ce_grasp     = T_ce_grasp_default,
+        k              = k,
+        v_max          = v_max,
+        w_max          = w_max,
+        method         = 5,
+    )
+
+
 def run_capstone(
     initial_robot_config: np.ndarray,
-    K_p:       np.ndarray,
-    K_i:       np.ndarray,
-    k:         int   = 1,
-    max_speed: float = np.inf,
-    v_max:     float = 0.5,
-    w_max:     float = 1.0,
-    traj_csv:  str   = "capstone_trajectory.csv",
-    err_csv:   str   = "capstone_Xerr.csv",
+    K_p:        np.ndarray,
+    K_i:        np.ndarray,
+    k:          int   = 1,
+    max_speed:  float = np.inf,
+    v_max:      float = 0.5,
+    w_max:      float = 1.0,
+    traj_csv:   str   = "capstone_trajectory.csv",
+    err_csv:    str   = "capstone_Xerr.csv",
+    trajectory: list  = None,
 ) -> tuple[list, list]:
     """
     Run the full capstone closed-loop simulation.
@@ -154,10 +187,13 @@ def run_capstone(
     K_i        : (6,6) integral gain matrix
     k          : reference configs per 0.01 s  (1 = one config per 10 ms)
     max_speed  : actuator speed clamp (rad/s); np.inf = no limit
-    v_max      : max linear speed for trajectory segment durations (m/s)
-    w_max      : max angular speed for trajectory segment durations (rad/s)
+    v_max      : max linear speed for trajectory generation (m/s)
+    w_max      : max angular speed for trajectory generation (rad/s)
     traj_csv   : output path for robot configuration trajectory
     err_csv    : output path for Xerr log
+    trajectory : pre-built trajectory (list of rows).  If None, a new
+                 trajectory is generated from the FK of initial_robot_config.
+                 Pass a pre-built trajectory to test with a perturbed start.
 
     Returns
     -------
@@ -167,27 +203,35 @@ def run_capstone(
     dt = 0.01 / k   # time between reference configurations (s)
 
     # ------------------------------------------------------------------
-    # Step 1 – Compute the actual initial end-effector pose from FK
+    # Step 1 – Obtain reference trajectory
     # ------------------------------------------------------------------
-    T_se_initial = _robot_state_to_T_se(initial_robot_config)
-    logger.info("Initial T_se computed from FK:\n%s",
-                np.array2string(T_se_initial, precision=4))
+    if trajectory is None:
+        # Generate from the FK of the initial robot configuration (perfect start)
+        T_se_initial = _robot_state_to_T_se(initial_robot_config)
+        logger.info("Initial T_se from FK:\n%s",
+                    np.array2string(T_se_initial, precision=4))
+        logger.info("Generating reference trajectory …")
+        trajectory = TrajectoryGenerator(
+            T_se_initial   = T_se_initial,
+            T_sc_initial   = T_sc_initial,
+            T_sc_final     = T_sc_goal,
+            T_ce_grasp     = T_ce_grasp_default,
+            T_ce_standoff  = T_ce_standoff_default,
+            k              = k,
+            v_max          = v_max,
+            w_max          = w_max,
+            method         = 5,
+        )
+    else:
+        logger.info("Using pre-built trajectory (%d rows).", len(trajectory))
+        # Log how far the robot's actual start is from the trajectory start
+        T_se_actual = _robot_state_to_T_se(initial_robot_config)
+        T_se_ref    = _traj_row_to_T_se(trajectory[0])
+        X_err0 = mr.se3ToVec(mr.MatrixLog6(mr.TransInv(T_se_actual) @ T_se_ref))
+        logger.info("Initial Xerr (actual vs reference): %s  |Xerr|=%.4f",
+                    np.array2string(X_err0, precision=4),
+                    float(np.linalg.norm(X_err0)))
 
-    # ------------------------------------------------------------------
-    # Step 2 – Generate the 8-segment reference trajectory (Milestone 2)
-    # ------------------------------------------------------------------
-    logger.info("Generating reference trajectory …")
-    trajectory = TrajectoryGenerator(
-        T_se_initial   = T_se_initial,
-        T_sc_initial   = T_sc_initial,
-        T_sc_final     = T_sc_goal,
-        T_ce_grasp     = T_ce_grasp_default,
-        T_ce_standoff  = T_ce_standoff_default,
-        k              = k,
-        v_max          = v_max,
-        w_max          = w_max,
-        method         = 5,
-    )
     N = len(trajectory)
     logger.info("Reference trajectory: %d configurations  (%.2f s total)",
                 N, (N - 1) * dt)
@@ -264,12 +308,12 @@ if __name__ == "__main__":
     logger.info("=" * 60)
 
     # ------------------------------------------------------------------
-    # Initial robot configuration
-    # All chassis variables at zero; arm joints chosen so the end-effector
-    # starts above and slightly in front of the robot base.
-    # Joint angles (rad): θ1=0, θ2=0, θ3=0.2, θ4=-1.6, θ5=0
+    # Shared: "perfect" initial robot configuration
+    # Arm joints θ = (0, 0, 0.2, -1.6, 0) place the end-effector at a
+    # reasonable pose above the robot base.  The reference trajectory is
+    # generated FROM this configuration, so Xerr = 0 at t = 0.
     # ------------------------------------------------------------------
-    initial_config = np.array([
+    perfect_config = np.array([
         0.0,   # chassis φ
         0.0,   # chassis x
         0.0,   # chassis y
@@ -285,33 +329,77 @@ if __name__ == "__main__":
         0.0,   # gripper (open)
     ])
 
-    # ------------------------------------------------------------------
-    # PI gains  — diagonal 6×6
-    # Start with moderate proportional gain and zero integral.
-    # Tune K_i > 0 to eliminate steady-state errors if needed.
-    # ------------------------------------------------------------------
-    Kp_scalar = 2.0
-    Ki_scalar = 0.0
+    # Build the reference trajectory once from the perfect start.
+    # Both feedforward tests reuse this same trajectory.
+    ref_trajectory = build_trajectory(perfect_config, k=1, v_max=0.5, w_max=1.0)
 
-    K_p = np.eye(6) * Kp_scalar
-    K_i = np.eye(6) * Ki_scalar
+    K_zero = np.zeros((6, 6))   # feedforward-only
+    K_p    = np.eye(6) * 0.0    # PI run
+    K_i    = np.eye(6) * 0.0
 
-    logger.info("Gains: Kp=%.1f·I  Ki=%.1f·I", Kp_scalar, Ki_scalar)
-
-    config_log, error_log = run_capstone(
-        initial_robot_config = initial_config,
-        K_p       = K_p,
-        K_i       = K_i,
-        k         = 1,
-        max_speed = np.inf,
-        v_max     = 0.5,
-        w_max     = 1.0,
-        traj_csv  = "capstone_trajectory.csv",
-        err_csv   = "capstone_Xerr.csv",
+    # ==================================================================
+    # Test A – Feedforward only, perfect initial condition
+    # Expected: robot follows the trajectory closely; Xerr stays ~0
+    # because the Euler integration error is the only source of drift.
+    # ==================================================================
+    logger.info("")
+    logger.info("--- Test A: feedforward only, perfect start ---")
+    run_capstone(
+        initial_robot_config = perfect_config,
+        K_p        = K_zero,
+        K_i        = K_zero,
+        k          = 1,
+        max_speed  = np.inf,
+        trajectory = ref_trajectory,
+        traj_csv   = "capstone_testA_trajectory.csv",
+        err_csv    = "capstone_testA_Xerr.csv",
     )
 
-    logger.info("Simulation complete.")
-    logger.info("  Configuration rows : %d", len(config_log))
-    logger.info("  Error rows         : %d", len(error_log))
-    logger.info("  Final robot config : %s",
-                np.array2string(config_log[-1], precision=4))
+    # ==================================================================
+    # Test B – Feedforward only, deliberate initial error
+    # The robot starts with chassis offset (+0.1 m in x, +0.1 m in y,
+    # +0.1 rad in φ) so Xerr ≠ 0 at t = 0.
+    # Expected: the error does NOT shrink — the feedforward term only
+    # tracks the planned path; without feedback the gap persists.
+    # This makes sense physically: the feedforward has no knowledge of
+    # where the robot actually is; it blindly follows the plan.
+    # ==================================================================
+    logger.info("")
+    logger.info("--- Test B: feedforward only, perturbed start ---")
+    perturbed_config = perfect_config.copy()
+    perturbed_config[0] += 0.1    # φ offset
+    perturbed_config[1] += 0.1    # x offset
+    perturbed_config[2] += 0.1    # y offset
+
+    run_capstone(
+        initial_robot_config = perturbed_config,
+        K_p        = K_zero,
+        K_i        = K_zero,
+        k          = 1,
+        max_speed  = np.inf,
+        trajectory = ref_trajectory,   # same trajectory as Test A
+        traj_csv   = "capstone_testB_trajectory.csv",
+        err_csv    = "capstone_testB_Xerr.csv",
+    )
+
+    # ==================================================================
+    # Test C – PI feedback, perturbed start (full controller)
+    # Expected: Xerr starts non-zero but decays toward 0 as the
+    # proportional term drives the robot back onto the reference path.
+    # ==================================================================
+    logger.info("")
+    logger.info("--- Test C: PI feedback (Kp=2·I), perturbed start ---")
+    run_capstone(
+        initial_robot_config = perturbed_config,
+        K_p        = K_p,
+        K_i        = K_i,
+        k          = 1,
+        max_speed  = np.inf,
+        trajectory = ref_trajectory,   # same trajectory as Tests A & B
+        traj_csv   = "capstone_testC_trajectory.csv",
+        err_csv    = "capstone_testC_Xerr.csv",
+    )
+
+    logger.info("")
+    logger.info("All three tests complete.  Load the CSV files into")
+    logger.info("CoppeliaSim Scene 6 and compare the animations.")
