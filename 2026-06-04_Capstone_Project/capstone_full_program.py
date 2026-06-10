@@ -40,7 +40,7 @@ from milestone_2_reference_trajectory_generation import (
     T_ce_grasp_default,
     T_ce_standoff_default,
 )
-from milestone_3_feedback_control import FeedbackControl
+from milestone_3_feedback_control import FeedbackControl, JOINT_LIMITS
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +127,73 @@ def _write_csv(rows: list, filepath: str, label: str) -> None:
         for row in rows:
             writer.writerow([f"{v:.6f}" for v in row])
     logger.info("%s → %s  (%d rows)", label, filepath, len(rows))
+
+
+def _log_step(step: int, t: float,
+              config:      np.ndarray,
+              T_se:        np.ndarray,
+              X_d:         np.ndarray,
+              X_err:       np.ndarray,
+              controls:    np.ndarray,
+              config_next: np.ndarray) -> None:
+    """
+    Write one full control iteration to the DEBUG log.
+
+    Layout per step
+    ---------------
+    ─── step NNNN  t=T.TTTs ──────────
+      START config  : φ x y  J=[...]  W=[...]  grip
+      T_se START    : 4×4 matrix  (FK of START config)
+      T_se REF(X_d) : 4×4 matrix  (reference trajectory)
+      X_err         : [ω v]  |Xerr|=N
+      controls J_dot: [...]
+      controls W_dot: [...]
+      END   config  : φ x y  J=[...]  W=[...]  grip
+      T_se END      : 4×4 matrix  (FK of END config)
+      LIMIT VIOLATED: Jk=val (lo..hi)               ← WARNING on console too
+    """
+    def log_T(label: str, T: np.ndarray) -> None:
+        """Log a 4x4 SE(3) matrix as four rows."""
+        logger.debug("  %s:", label)
+        for row in T:
+            logger.debug("    [ %8.4f  %8.4f  %8.4f  %8.4f ]",
+                         row[0], row[1], row[2], row[3])
+
+    def fmt_arr(a: np.ndarray, prec: int = 4) -> str:
+        return "[" + "  ".join(f"{v:+.{prec}f}" for v in a) + "]"
+
+    J_cur  = config[3:8]
+    W_cur  = config[8:12]
+    J_next = config_next[3:8]
+    W_next = config_next[8:12]
+
+    T_se_next = _robot_state_to_T_se(config_next)
+
+    logger.debug("─── step %4d  t=%7.3f s ───────────────────────────────────────────",
+                 step, t)
+    logger.debug("  START config  : φ=%+.4f x=%+.4f y=%+.4f  J=%s  W=%s  grip=%d",
+                 config[0], config[1], config[2],
+                 fmt_arr(J_cur), fmt_arr(W_cur), int(config[12]))
+    log_T("T_se START (actual)", T_se)
+    log_T("T_se REF   (X_d)   ", X_d)
+    logger.debug("  X_err         : %s  |Xerr|=%8.4f",
+                 fmt_arr(X_err), float(np.linalg.norm(X_err)))
+    logger.debug("  controls J_dot: %s", fmt_arr(controls[:5]))
+    logger.debug("  controls W_dot: %s", fmt_arr(controls[5:]))
+    logger.debug("  END   config  : φ=%+.4f x=%+.4f y=%+.4f  J=%s  W=%s  grip=%d",
+                 config_next[0], config_next[1], config_next[2],
+                 fmt_arr(J_next), fmt_arr(W_next), int(config_next[12]))
+    log_T("T_se END   (after NextState)", T_se_next)
+
+    # Joint limit violations in the NEW configuration
+    violations = []
+    for k, (theta, (lo, hi)) in enumerate(zip(J_next, JOINT_LIMITS)):
+        if theta < lo or theta > hi:
+            violations.append(f"J{k+1}={theta:+.4f} ({lo:.3f}..{hi:.3f})")
+    if violations:
+        msg = "  LIMIT VIOLATED: " + "  ".join(violations)
+        logger.debug(msg)
+        logger.warning("step %4d  LIMIT VIOLATED: %s", step, "  ".join(violations))
 
 
 # ---------------------------------------------------------------------------
@@ -272,10 +339,23 @@ def run_capstone(
         )
 
         # ---- Milestone 1: integrate robot state one timestep ----
-        robot_config = NextState(robot_config, controls, dt, max_speed)
+        config_before = robot_config.copy()
+        robot_config  = NextState(robot_config, controls, dt, max_speed)
 
         # ---- gripper state comes from the reference trajectory ----
         robot_config[12] = trajectory[i + 1][12]
+
+        # ---- per-step debug log ----
+        _log_step(
+            step        = i,
+            t           = i * dt,
+            config      = config_before,
+            T_se        = T_se,
+            X_d         = X_d,
+            X_err       = X_err,
+            controls    = controls,
+            config_next = robot_config,
+        )
 
         # ---- store every k-th step ----
         if (i + 1) % k == 0:
