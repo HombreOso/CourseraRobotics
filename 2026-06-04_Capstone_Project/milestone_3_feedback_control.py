@@ -120,7 +120,9 @@ from configurations import T_b0, M_0e, Blist, F6 as _F6
 
 def _build_logger(name: str = "milestone_3") -> logging.Logger:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_path  = Path(__file__).parent / f"{name}_{timestamp}.log"
+    log_dir  = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path  = log_dir / f"{name}_{timestamp}.log"
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)

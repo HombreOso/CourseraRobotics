@@ -39,7 +39,8 @@ def _build_logger(name: str = "milestone_1") -> logging.Logger:
     file in the same directory as this script.
     """
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_dir   = Path(__file__).parent
+    log_dir   = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
     log_path  = log_dir / f"{name}_{timestamp}.log"
 
     logger = logging.getLogger(name)

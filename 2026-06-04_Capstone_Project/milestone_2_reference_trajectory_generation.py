@@ -37,7 +37,9 @@ from cube_config import T_sc_initial, T_sc_goal
 
 def _build_logger(name: str = "milestone_2") -> logging.Logger:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_path  = Path(__file__).parent / f"{name}_{timestamp}.log"
+    log_dir  = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path  = log_dir / f"{name}_{timestamp}.log"
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)

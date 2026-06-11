@@ -49,7 +49,9 @@ from milestone_3_feedback_control import FeedbackControl, JOINT_LIMITS
 
 def _build_logger(name: str = "capstone") -> logging.Logger:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_path  = Path(__file__).parent / f"{name}_{timestamp}.log"
+    log_dir  = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path  = log_dir / f"{name}_{timestamp}.log"
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
@@ -413,9 +415,9 @@ if __name__ == "__main__":
     # Both feedforward tests reuse this same trajectory.
     ref_trajectory = build_trajectory(perfect_config, k=1, v_max=0.5, w_max=1.0)
 
-    K_zero = np.zeros((6, 6))   # feedforward-only
-    K_p    = np.eye(6) * 0.0    # PI run
-    K_i    = np.eye(6) * 0.0
+    K_zero = np.zeros((6, 6))   # feedforward-only (Tests A & B)
+    K_p    = np.eye(6) * 2.0    # proportional gain  (Test C)
+    K_i    = np.eye(6) * 0.2    # integral gain      (Test C)
 
     # ==================================================================
     # Test A – Feedforward only, perfect initial condition

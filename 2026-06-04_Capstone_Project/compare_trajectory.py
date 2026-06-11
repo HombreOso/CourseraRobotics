@@ -50,7 +50,9 @@ from capstone_full_program import _robot_state_to_T_se
 
 def _build_logger(stem: str) -> logging.Logger:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_path  = Path(__file__).parent / f"{stem}_comparison_{timestamp}.log"
+    log_dir  = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path  = log_dir / f"{stem}_comparison_{timestamp}.log"
 
     logger = logging.getLogger(f"compare.{stem}")
     logger.setLevel(logging.DEBUG)
@@ -260,7 +262,7 @@ def compare(
     # ── write comparison CSV ──────────────────────────────────────────────────
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if out_csv is None:
-        out_csv = str(Path(__file__).parent / f"{stem}_comparison_{timestamp}.csv")
+        out_csv = str(Path(__file__).parent / "logs" / f"{stem}_comparison_{timestamp}.csv")
 
     HEADER = [
         "step", "t",
