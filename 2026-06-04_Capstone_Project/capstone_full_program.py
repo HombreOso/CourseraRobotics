@@ -40,7 +40,11 @@ from milestone_2_reference_trajectory_generation import (
     T_ce_grasp_default,
     T_ce_standoff_default,
 )
-from milestone_3_feedback_control import FeedbackControl, JOINT_LIMITS
+from milestone_3_feedback_control import (
+    FeedbackControl, JOINT_LIMITS,
+    nonlinear_chassis_se2_correction, _desired_chassis_pose,
+)
+from aa_tuning import k_p_diag_value, k_i_diag_value, k_nl_phi, k_nl_x, k_nl_y
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +249,10 @@ def run_capstone(
     traj_csv:   str   = "capstone_trajectory.csv",
     err_csv:    str   = "capstone_Xerr.csv",
     trajectory: list  = None,
+    nonlinear_chassis: bool  = False,
+    k_nl_phi:          float = 1.5,
+    k_nl_x:            float = 1.5,
+    k_nl_y:            float = 1.5,
 ) -> tuple[list, list]:
     """
     Run the full capstone closed-loop simulation.
@@ -330,14 +338,19 @@ def run_capstone(
 
         # ---- Milestone 3: feedback + feedforward control ----
         _V, controls, X_err, X_err_integral = FeedbackControl(
-            X              = T_se,
-            X_d            = X_d,
-            X_d_next       = X_d_next,
-            K_p            = K_p,
-            K_i            = K_i,
-            dt             = dt,
-            theta_list     = theta_list,
-            X_err_integral = X_err_integral,
+            X                  = T_se,
+            X_d                = X_d,
+            X_d_next           = X_d_next,
+            K_p                = K_p,
+            K_i                = K_i,
+            dt                 = dt,
+            theta_list         = theta_list,
+            X_err_integral     = X_err_integral,
+            robot_config       = robot_config,
+            nonlinear_chassis  = nonlinear_chassis,
+            k_nl_phi           = k_nl_phi,
+            k_nl_x             = k_nl_x,
+            k_nl_y             = k_nl_y,
         )
 
         # ---- Milestone 1: integrate robot state one timestep ----
@@ -416,8 +429,8 @@ if __name__ == "__main__":
     ref_trajectory = build_trajectory(perfect_config, k=1, v_max=0.5, w_max=1.0)
 
     K_zero = np.zeros((6, 6))   # feedforward-only (Tests A & B)
-    K_p    = np.eye(6) * 2.0    # proportional gain  (Test C)
-    K_i    = np.eye(6) * 0.2    # integral gain      (Test C)
+    K_p    = np.eye(6) * k_p_diag_value    # proportional gain  (Test C)
+    K_i    = np.eye(6) * k_i_diag_value    # integral gain      (Test C)
 
     # ==================================================================
     # Test A – Feedforward only, perfect initial condition
@@ -435,6 +448,9 @@ if __name__ == "__main__":
         trajectory = ref_trajectory,
         traj_csv   = "capstone_testA_trajectory.csv",
         err_csv    = "capstone_testA_Xerr.csv",
+        k_nl_phi   = 1.5,
+        k_nl_x     = 1.5,
+        k_nl_y     = 1.5,
     )
 
     # ==================================================================
@@ -480,8 +496,35 @@ if __name__ == "__main__":
         trajectory = ref_trajectory,   # same trajectory as Tests A & B
         traj_csv   = "capstone_testC_trajectory.csv",
         err_csv    = "capstone_testC_Xerr.csv",
+        k_nl_phi   = 1.5,
+        k_nl_x     = 1.5,
+        k_nl_y     = 1.5,
+    )
+
+    # ==================================================================
+    # Test D – Nonlinear SE(2) chassis correction + PI, perturbed start
+    # This adds the holonomic adaptation of MR eq. 13.30/13.31 on top of
+    # the PI feedback.  Expected: faster chassis heading correction and
+    # the robot no longer moves in the wrong direction during convergence.
+    # ==================================================================
+    logger.info("")
+    logger.info("--- Test D: PI + nonlinear chassis SE(2), perturbed start ---")
+    run_capstone(
+        initial_robot_config = perturbed_config,
+        K_p        = K_p,
+        K_i        = K_i,
+        k          = 1,
+        max_speed  = np.inf,
+        trajectory = ref_trajectory,
+        traj_csv   = "capstone_testD_trajectory.csv",
+        err_csv    = "capstone_testD_Xerr.csv",
+        nonlinear_chassis = True,
+        k_nl_phi   = k_nl_phi,
+        k_nl_x     = k_nl_x,
+        k_nl_y     = k_nl_y,
     )
 
     logger.info("")
-    logger.info("All three tests complete.  Load the CSV files into")
+    logger.info("All four tests complete.  Load the CSV files into")
     logger.info("CoppeliaSim Scene 6 and compare the animations.")
+    logger.info("Test C = PI only.  Test D = PI + nonlinear chassis SE(2).")

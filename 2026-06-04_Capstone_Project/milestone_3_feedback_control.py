@@ -302,6 +302,117 @@ def _mobile_manipulator_jacobian(theta_list: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Nonlinear chassis SE(2) control  (holonomic adaptation of MR eq. 13.30/13.31)
+# ---------------------------------------------------------------------------
+
+def _desired_chassis_pose(
+    T_se_d:     np.ndarray,
+    theta_list: np.ndarray,
+) -> tuple[float, float, float]:
+    """
+    Extract the desired chassis pose (phi_d, x_d, y_d) from the reference EE
+    pose T_se_d and the current arm joint angles.
+
+    The kinematics chain is:
+        T_se = T_sb(phi,x,y) @ T_b0 @ T_0e(theta)
+
+    Solving for T_sb_d:
+        T_sb_d = T_se_d @ inv(T_b0 @ T_0e(theta))
+
+    This gives the chassis body frame pose that would place the EE at T_se_d
+    with the arm in its current configuration.  It is an approximation when the
+    arm is also changing, but is exact when only the chassis has initial error.
+
+    Returns
+    -------
+    phi_d : float  desired chassis yaw  (rad)
+    x_d   : float  desired chassis x    (m)
+    y_d   : float  desired chassis y    (m)
+    """
+    T_0e   = mr.FKinBody(M_0e, Blist, theta_list)
+    T_sb_d = T_se_d @ mr.TransInv(T_b0 @ T_0e)
+    phi_d  = float(np.arctan2(T_sb_d[1, 0], T_sb_d[0, 0]))
+    x_d    = float(T_sb_d[0, 3])
+    y_d    = float(T_sb_d[1, 3])
+    return phi_d, x_d, y_d
+
+
+def nonlinear_chassis_se2_correction(
+    phi:   float, x:   float, y:   float,
+    phi_d: float, x_d: float, y_d: float,
+    k_phi: float = 1.0,
+    k_x:   float = 1.0,
+    k_y:   float = 1.0,
+) -> np.ndarray:
+    """
+    Holonomic adaptation of Modern Robotics eq. 13.30/13.31.
+
+    WHY NOT 13.31 DIRECTLY?
+    -----------------------
+    Eq. 13.31 is derived for a *unicycle* (nonholonomic diff-drive) with only
+    two controls (v, omega).  The YouBot's mecanum chassis is *holonomic*: it
+    has three independently controllable chassis DOF (v_bx, v_by, omega_bz).
+    The tan(phi_e)/cos(phi_e) singularity in 13.31 arises precisely because a
+    unicycle cannot move sideways — it must turn to face its target first.
+    A holonomic chassis has no such constraint.
+
+    ADAPTED SE(2) NONLINEAR CONTROL
+    --------------------------------
+    Step 1 — Error in reference frame {d}  (same as MR eq. 13.30)
+
+        phi_e =  phi  - phi_d
+        [x_e ]   [ cos(phi_d)   sin(phi_d) ] [x  - x_d]
+        [y_e ] = [-sin(phi_d)   cos(phi_d) ] [y  - y_d]
+
+        Expressing position error in {d} ensures the feedback pushes the
+        chassis along the *reference heading* rather than the world axes.
+        This is the key correction compared to naive proportional control
+        on (phi-phi_d, x-x_d, y-y_d) in the world frame.
+
+    Step 2 — Holonomic correction twist (3 DOF, no singularity)
+
+        Compute the desired correction in frame {d}:
+            delta_omega_d = -k_phi * phi_e
+            delta_vx_d    = -k_x   * x_e
+            delta_vy_d    = -k_y   * y_e
+
+        Rotate from {d} back to chassis body frame {b}:
+            [delta_vx_b]   [cos(phi_e)  -sin(phi_e)] [delta_vx_d]
+            [delta_vy_b] = [sin(phi_e)   cos(phi_e)] [delta_vy_d]
+
+    Step 3 — Return as 6D body twist in frame {b}
+        [0, 0, omega_bz, v_bx, v_by, 0]
+
+    Parameters
+    ----------
+    phi, x, y        : current chassis state
+    phi_d, x_d, y_d  : desired chassis state (from _desired_chassis_pose)
+    k_phi, k_x, k_y  : positive feedback gains
+
+    Returns
+    -------
+    V_chassis_b : ndarray (6,)  chassis body twist [0,0,ω,v_x,v_y,0] in {b}
+    """
+    # Step 1 — SE(2) error in reference frame {d}
+    phi_e = phi - phi_d
+    cd, sd = np.cos(phi_d), np.sin(phi_d)
+    x_e =  cd * (x - x_d) + sd * (y - y_d)
+    y_e = -sd * (x - x_d) + cd * (y - y_d)
+
+    # Step 2 — correction in {d} frame, rotate to body frame {b}
+    delta_omega = -k_phi * phi_e
+    dvx_d       = -k_x  * x_e
+    dvy_d       = -k_y  * y_e
+
+    ce, se = np.cos(phi_e), np.sin(phi_e)
+    v_bx =  ce * dvx_d - se * dvy_d
+    v_by =  se * dvx_d + ce * dvy_d
+
+    # Step 3 — 6D body twist in {b}: [omega_bx, omega_by, omega_bz, v_bx, v_by, v_bz]
+    return np.array([0.0, 0.0, delta_omega, v_bx, v_by, 0.0])
+
+
+# ---------------------------------------------------------------------------
 # Core control law
 # ---------------------------------------------------------------------------
 
@@ -315,6 +426,11 @@ def FeedbackControl(
     theta_list:           np.ndarray,
     X_err_integral:       np.ndarray,
     enforce_joint_limits: bool = True,
+    robot_config:         np.ndarray | None = None,
+    nonlinear_chassis:    bool = False,
+    k_nl_phi:             float = 1.0,
+    k_nl_x:               float = 1.0,
+    k_nl_y:               float = 1.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute the commanded twist and actuator speeds for one control timestep.
@@ -392,6 +508,15 @@ def FeedbackControl(
     enforce_joint_limits : bool – if True (default), zero out Je columns for joints
                            predicted to violate JOINT_LIMITS after this step, then
                            recompute the pseudoinverse.  Set False to disable.
+    robot_config         : (13,) full robot state [phi,x,y,J1..J5,W1..W4,grip].
+                           Required when nonlinear_chassis=True.
+    nonlinear_chassis    : bool – if True, add a holonomic SE(2) nonlinear chassis
+                           correction (adapted from MR eq. 13.30/13.31) that
+                           expresses chassis position error in the reference frame
+                           {d} before applying feedback.  This prevents the chassis
+                           from moving in the wrong direction when the heading error
+                           phi_e is large.  Requires robot_config to be provided.
+    k_nl_phi, k_nl_x, k_nl_y : gains for the nonlinear chassis correction.
 
     Returns
     -------
@@ -440,6 +565,35 @@ def FeedbackControl(
     V = (Ad_X_inv_Xd @ V_d          # feedforward: follow the planned path
          + K_p @ X_err              # proportional: shrink the current pose gap
          + K_i @ X_err_integral)    # integral: eliminate persistent steady errors
+
+    # ------------------------------------------------------------------
+    # Optional: nonlinear chassis SE(2) correction
+    #
+    # The standard Se(3) feedback expresses chassis position error in the
+    # world frame, which can command the chassis in the wrong direction when
+    # the heading error phi_e is non-zero.
+    #
+    # The holonomic adaptation of MR eq. 13.30/13.31 re-expresses the chassis
+    # position error in the reference heading frame {d} FIRST, then rotates the
+    # correction back to the chassis body frame.  This ensures the robot drives
+    # along the reference direction rather than against it.
+    #
+    # The chassis correction is a 6D body twist in {b}.  It is re-expressed
+    # in {e} via the same Adjoint chain used for J_base, then added to V.
+    # ------------------------------------------------------------------
+    if nonlinear_chassis and robot_config is not None:
+        phi, cx, cy = float(robot_config[0]), float(robot_config[1]), float(robot_config[2])
+        phi_d, x_d, y_d = _desired_chassis_pose(X_d, theta_list)
+
+        V_chassis_b = nonlinear_chassis_se2_correction(
+            phi, cx, cy, phi_d, x_d, y_d,
+            k_phi=k_nl_phi, k_x=k_nl_x, k_y=k_nl_y,
+        )
+        # Transform chassis body twist from {b} to {e}
+        T_0e   = mr.FKinBody(M_0e, Blist, theta_list)
+        Ad_b2e = mr.Adjoint(mr.TransInv(T_0e) @ mr.TransInv(T_b0))  # 6×6
+        V_chassis_e = Ad_b2e @ V_chassis_b
+        V = V + V_chassis_e
 
     # ------------------------------------------------------------------
     # Step 5: Invert the Jacobian to get actuator speeds
