@@ -431,6 +431,8 @@ def FeedbackControl(
     k_nl_phi:             float = 1.0,
     k_nl_x:               float = 1.0,
     k_nl_y:               float = 1.0,
+    ff_error_scale:       float = 0.0,
+    lambda_damping:       float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute the commanded twist and actuator speeds for one control timestep.
@@ -517,6 +519,18 @@ def FeedbackControl(
                            from moving in the wrong direction when the heading error
                            phi_e is large.  Requires robot_config to be provided.
     k_nl_phi, k_nl_x, k_nl_y : gains for the nonlinear chassis correction.
+    ff_error_scale       : float – when > 0, the Adjoint-corrected feedforward
+                           Ad_{X⁻¹Xd} V_d is blended toward plain V_d as
+                           |Xerr| grows:
+                               alpha = 1 / (1 + ff_error_scale * |Xerr|)
+                               V_ff  = alpha * (Ad @ V_d) + (1-alpha) * V_d
+                           Disabled by default (set 0); prefer lambda_damping.
+    lambda_damping       : float – damping factor λ for the damped least-squares
+                           pseudoinverse (MR textbook, Chapter 6):
+                               J⁺ = Jᵀ (J Jᵀ + λ² I)⁻¹
+                           λ=0 (default) uses the exact Moore-Penrose pseudoinverse.
+                           Use λ≈0.05 to bound actuator speeds near arm
+                           singularities without affecting well-conditioned configs.
 
     Returns
     -------
@@ -562,7 +576,19 @@ def FeedbackControl(
     # would push in the wrong direction whenever X ≠ Xd.
     # ------------------------------------------------------------------
     Ad_X_inv_Xd = mr.Adjoint(mr.TransInv(X) @ X_d)             # 6×6
-    V = (Ad_X_inv_Xd @ V_d          # feedforward: follow the planned path
+
+    # Feedforward: optionally blend Adjoint-corrected V_d with plain V_d.
+    # When ff_error_scale > 0: alpha = 1/(1 + k*|Xerr|)
+    #   -> on-path (Xerr≈0): alpha≈1, full Adjoint correction (correct)
+    #   -> off-path (Xerr large): alpha decreases, suppresses p×ω amplification
+    # Default 0 disables blending; prefer lambda_damping to address singularities.
+    if ff_error_scale > 0.0:
+        _alpha = 1.0 / (1.0 + ff_error_scale * float(np.linalg.norm(X_err)))
+        V_ff   = _alpha * (Ad_X_inv_Xd @ V_d) + (1.0 - _alpha) * V_d
+    else:
+        V_ff = Ad_X_inv_Xd @ V_d
+
+    V = (V_ff                       # feedforward: follow the planned path
          + K_p @ X_err              # proportional: shrink the current pose gap
          + K_i @ X_err_integral)    # integral: eliminate persistent steady errors
 
@@ -622,6 +648,26 @@ def FeedbackControl(
     # ------------------------------------------------------------------
     Je = _mobile_manipulator_jacobian(theta_list)               # 6×9
 
+    # ------------------------------------------------------------------
+    # Pseudoinverse helper (damped least-squares, MR Chapter 6)
+    #
+    # Exact (Moore-Penrose) pseudoinverse gains = 1/σ_i for each singular
+    # value.  When σ_i → 0 near an arm singularity the gain → ∞ and the
+    # commanded actuator speeds blow up (we measured 196 rad/s in Test A).
+    #
+    # Damped least-squares:
+    #     J⁺ = Jᵀ (J Jᵀ + λ² I)⁻¹
+    # replaces gain 1/σ with σ/(σ² + λ²).
+    #   • For σ >> λ: gain ≈ 1/σ  (no change near well-conditioned configs)
+    #   • For σ → 0:  gain → 1/(2λ) (bounded; no blow-up at singularities)
+    # λ = 0 → exact pseudoinverse (backward-compatible default).
+    # ------------------------------------------------------------------
+    def _pinv(J: np.ndarray) -> np.ndarray:
+        if lambda_damping <= 0.0:
+            return np.linalg.pinv(J)
+        m = J.shape[0]   # rows = 6 for Je
+        return J.T @ np.linalg.inv(J @ J.T + lambda_damping**2 * np.eye(m))
+
     if enforce_joint_limits:
         # Iterative enforcement (fixes two confirmed bugs):
         #
@@ -641,7 +687,7 @@ def FeedbackControl(
         Je_work = Je.copy()
         frozen: list[int] = []
         for _pass in range(5):
-            controls   = np.linalg.pinv(Je_work) @ V            # (9,)
+            controls   = _pinv(Je_work) @ V                      # (9,)
             theta_next = theta_list + controls[4:9] * dt         # (5,)
 
             to_freeze = []
@@ -677,7 +723,7 @@ def FeedbackControl(
                 Je_work[:, 4 + j] = 0.0   # column 4+j = arm joint j (0-indexed)
                 frozen.append(j)
     else:
-        controls = np.linalg.pinv(Je) @ V                      # (9,)
+        controls = _pinv(Je) @ V                                  # (9,)
 
     logger.debug(
         "Xerr=%s  Vd=%s  V=%s  controls=%s",

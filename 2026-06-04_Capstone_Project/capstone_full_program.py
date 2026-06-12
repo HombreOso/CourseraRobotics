@@ -44,7 +44,13 @@ from milestone_3_feedback_control import (
     FeedbackControl, JOINT_LIMITS,
     nonlinear_chassis_se2_correction, _desired_chassis_pose,
 )
-from aa_tuning import k_p_diag_value, k_i_diag_value, k_nl_phi, k_nl_x, k_nl_y
+from aa_tuning import (
+    k_p_diag_value, k_i_diag_value,
+    k_nl_phi, k_nl_x, k_nl_y,
+    max_speed as _default_max_speed,
+    ff_error_scale as _default_ff_error_scale,
+    lambda_damping as _default_lambda_damping,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +259,8 @@ def run_capstone(
     k_nl_phi:          float = 1.5,
     k_nl_x:            float = 1.5,
     k_nl_y:            float = 1.5,
+    ff_error_scale:    float = 0.0,
+    lambda_damping:    float = 0.0,
 ) -> tuple[list, list]:
     """
     Run the full capstone closed-loop simulation.
@@ -351,6 +359,8 @@ def run_capstone(
             k_nl_phi           = k_nl_phi,
             k_nl_x             = k_nl_x,
             k_nl_y             = k_nl_y,
+            ff_error_scale     = ff_error_scale,
+            lambda_damping     = lambda_damping,
         )
 
         # ---- Milestone 1: integrate robot state one timestep ----
@@ -429,38 +439,43 @@ if __name__ == "__main__":
     ref_trajectory = build_trajectory(perfect_config, k=1, v_max=0.5, w_max=1.0)
 
     K_zero = np.zeros((6, 6))   # feedforward-only (Tests A & B)
-    K_p    = np.eye(6) * k_p_diag_value    # proportional gain  (Test C)
-    K_i    = np.eye(6) * k_i_diag_value    # integral gain      (Test C)
+    K_p    = np.eye(6) * k_p_diag_value    # proportional gain  (Tests C & D)
+    K_i    = np.eye(6) * k_i_diag_value    # integral gain      (Tests C & D)
+
+    # Shared simulation parameters (all sourced from aa_tuning.py)
+    _common = dict(
+        max_speed      = _default_max_speed,
+        ff_error_scale = _default_ff_error_scale,
+        lambda_damping = _default_lambda_damping,
+    )
+    logger.info(
+        "Simulation params: max_speed=%.1f  lambda_damping=%.3f  ff_error_scale=%.2f",
+        _default_max_speed, _default_lambda_damping, _default_ff_error_scale,
+    )
 
     # ==================================================================
     # Test A – Feedforward only, perfect initial condition
     # Expected: robot follows the trajectory closely; Xerr stays ~0
-    # because the Euler integration error is the only source of drift.
+    # because Euler integration error is the only source of drift.
     # ==================================================================
     logger.info("")
     logger.info("--- Test A: feedforward only, perfect start ---")
     run_capstone(
         initial_robot_config = perfect_config,
-        K_p        = K_zero,
-        K_i        = K_zero,
-        k          = 1,
-        max_speed  = np.inf,
+        K_p       = K_zero,
+        K_i       = K_zero,
+        k         = 1,
         trajectory = ref_trajectory,
-        traj_csv   = "capstone_testA_trajectory.csv",
-        err_csv    = "capstone_testA_Xerr.csv",
-        k_nl_phi   = 1.5,
-        k_nl_x     = 1.5,
-        k_nl_y     = 1.5,
+        traj_csv  = "capstone_testA_trajectory.csv",
+        err_csv   = "capstone_testA_Xerr.csv",
+        **_common,
     )
 
     # ==================================================================
     # Test B – Feedforward only, deliberate initial error
     # The robot starts with chassis offset (+0.1 m in x, +0.1 m in y,
     # +0.1 rad in φ) so Xerr ≠ 0 at t = 0.
-    # Expected: the error does NOT shrink — the feedforward term only
-    # tracks the planned path; without feedback the gap persists.
-    # This makes sense physically: the feedforward has no knowledge of
-    # where the robot actually is; it blindly follows the plan.
+    # Expected: the error does NOT shrink (feedforward is open-loop).
     # ==================================================================
     logger.info("")
     logger.info("--- Test B: feedforward only, perturbed start ---")
@@ -471,60 +486,56 @@ if __name__ == "__main__":
 
     run_capstone(
         initial_robot_config = perturbed_config,
-        K_p        = K_zero,
-        K_i        = K_zero,
-        k          = 1,
-        max_speed  = np.inf,
-        trajectory = ref_trajectory,   # same trajectory as Test A
-        traj_csv   = "capstone_testB_trajectory.csv",
-        err_csv    = "capstone_testB_Xerr.csv",
+        K_p       = K_zero,
+        K_i       = K_zero,
+        k         = 1,
+        trajectory = ref_trajectory,
+        traj_csv  = "capstone_testB_trajectory.csv",
+        err_csv   = "capstone_testB_Xerr.csv",
+        **_common,
     )
 
     # ==================================================================
-    # Test C – PI feedback, perturbed start (full controller)
-    # Expected: Xerr starts non-zero but decays toward 0 as the
-    # proportional term drives the robot back onto the reference path.
+    # Test C – PI feedback, perturbed start
+    # Expected: Xerr starts non-zero but decays as feedback corrects.
     # ==================================================================
     logger.info("")
-    logger.info("--- Test C: PI feedback (Kp=2·I), perturbed start ---")
+    logger.info("--- Test C: PI feedback (Kp=%.1f·I, Ki=%.2f·I), perturbed start ---",
+                k_p_diag_value, k_i_diag_value)
     run_capstone(
         initial_robot_config = perturbed_config,
-        K_p        = K_p,
-        K_i        = K_i,
-        k          = 1,
-        max_speed  = np.inf,
-        trajectory = ref_trajectory,   # same trajectory as Tests A & B
-        traj_csv   = "capstone_testC_trajectory.csv",
-        err_csv    = "capstone_testC_Xerr.csv",
-        k_nl_phi   = 1.5,
-        k_nl_x     = 1.5,
-        k_nl_y     = 1.5,
+        K_p       = K_p,
+        K_i       = K_i,
+        k         = 1,
+        trajectory = ref_trajectory,
+        traj_csv  = "capstone_testC_trajectory.csv",
+        err_csv   = "capstone_testC_Xerr.csv",
+        **_common,
     )
 
     # ==================================================================
     # Test D – Nonlinear SE(2) chassis correction + PI, perturbed start
-    # This adds the holonomic adaptation of MR eq. 13.30/13.31 on top of
-    # the PI feedback.  Expected: faster chassis heading correction and
-    # the robot no longer moves in the wrong direction during convergence.
+    # Adds holonomic adaptation of MR eq. 13.30/13.31 on top of PI.
+    # Expected: faster chassis heading correction without wrong-direction
+    # transients.
     # ==================================================================
     logger.info("")
     logger.info("--- Test D: PI + nonlinear chassis SE(2), perturbed start ---")
     run_capstone(
         initial_robot_config = perturbed_config,
-        K_p        = K_p,
-        K_i        = K_i,
-        k          = 1,
-        max_speed  = np.inf,
+        K_p       = K_p,
+        K_i       = K_i,
+        k         = 1,
         trajectory = ref_trajectory,
-        traj_csv   = "capstone_testD_trajectory.csv",
-        err_csv    = "capstone_testD_Xerr.csv",
+        traj_csv  = "capstone_testD_trajectory.csv",
+        err_csv   = "capstone_testD_Xerr.csv",
         nonlinear_chassis = True,
-        k_nl_phi   = k_nl_phi,
-        k_nl_x     = k_nl_x,
-        k_nl_y     = k_nl_y,
+        k_nl_phi  = k_nl_phi,
+        k_nl_x    = k_nl_x,
+        k_nl_y    = k_nl_y,
+        **_common,
     )
 
     logger.info("")
-    logger.info("All four tests complete.  Load the CSV files into")
-    logger.info("CoppeliaSim Scene 6 and compare the animations.")
-    logger.info("Test C = PI only.  Test D = PI + nonlinear chassis SE(2).")
+    logger.info("All four tests complete.  CSV files ready for CoppeliaSim Scene 6.")
+    logger.info("A=feedforward perfect  B=feedforward perturbed  C=PI  D=PI+nonlinear")
