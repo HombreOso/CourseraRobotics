@@ -304,7 +304,7 @@ def write_trajectory_csv(trajectory: list[list[float]], filepath: str) -> None:
 T_ce_grasp_default = np.array([
     [ -1,  0,  0,  0    ],
     [ 0,  1,  0,  0    ],
-    [0,  0,  -1,  0.02    ],
+    [0,  0,  -1,  0.013    ],
     [ 0,  0,  0,  1    ],
 ], dtype=float)
 
