@@ -1,0 +1,69 @@
+2026-06-09 23:56:31  INFO      Log file: C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-06-04_Capstone_Project\capstone_2026-06-09_23-56-31.log
+2026-06-09 23:56:31  INFO      ============================================================
+2026-06-09 23:56:31  INFO      Capstone Full Program – youBot Mobile Manipulation
+2026-06-09 23:56:31  INFO      ============================================================
+2026-06-09 23:56:31  INFO      build_trajectory: T_se_initial from FK:
+[[ 0.17    0.      0.9854  0.3868]
+ [ 0.      1.      0.      0.    ]
+ [-0.9854  0.      0.17    0.5702]
+ [ 0.      0.      0.      1.    ]]
+2026-06-09 23:56:31  INFO      
+2026-06-09 23:56:31  INFO      --- Test A: feedforward only, perfect start ---
+2026-06-09 23:56:31  INFO      Using pre-built trajectory (737 rows).
+2026-06-09 23:56:31  INFO      Initial Xerr (actual vs reference): [ 0.0000e+00  0.0000e+00  0.0000e+00 -5.5511e-17  0.0000e+00  5.5511e-17]  |Xerr|=0.0000
+2026-06-09 23:56:31  INFO      Reference trajectory: 737 configurations  (7.36 s total)
+2026-06-09 23:56:31  INFO      Starting control loop: 736 iterations …
+2026-06-09 23:56:32  INFO        step    73 / 736   |Xerr|=0.0733
+2026-06-09 23:56:32  INFO        step   146 / 736   |Xerr|=0.0750
+2026-06-09 23:56:32  INFO        step   219 / 736   |Xerr|=0.0772
+2026-06-09 23:56:32  INFO        step   292 / 736   |Xerr|=0.0772
+2026-06-09 23:56:33  INFO        step   365 / 736   |Xerr|=0.0776
+2026-06-09 23:56:33  INFO        step   438 / 736   |Xerr|=0.1062
+2026-06-09 23:56:33  INFO        step   511 / 736   |Xerr|=0.1764
+2026-06-09 23:56:34  INFO        step   584 / 736   |Xerr|=0.2059
+2026-06-09 23:56:34  INFO        step   657 / 736   |Xerr|=0.1874
+2026-06-09 23:56:34  INFO        step   730 / 736   |Xerr|=0.1874
+2026-06-09 23:56:34  INFO      Control loop complete.  Final |Xerr| = 0.1874
+2026-06-09 23:56:34  INFO      Robot config CSV → capstone_testA_trajectory.csv  (737 rows)
+2026-06-09 23:56:34  INFO      Xerr CSV         → capstone_testA_Xerr.csv  (736 rows)
+2026-06-09 23:56:34  INFO      
+2026-06-09 23:56:34  INFO      --- Test B: feedforward only, perturbed start ---
+2026-06-09 23:56:34  INFO      Using pre-built trajectory (737 rows).
+2026-06-09 23:56:34  INFO      Initial Xerr (actual vs reference): [ 0.0985  0.     -0.017  -0.0178 -0.1336 -0.1034]  |Xerr|=0.1971
+2026-06-09 23:56:34  INFO      Reference trajectory: 737 configurations  (7.36 s total)
+2026-06-09 23:56:34  INFO      Starting control loop: 736 iterations …
+2026-06-09 23:56:34  INFO        step    73 / 736   |Xerr|=0.1998
+2026-06-09 23:56:35  INFO        step   146 / 736   |Xerr|=0.1947
+2026-06-09 23:56:35  INFO        step   219 / 736   |Xerr|=0.1399
+2026-06-09 23:56:35  INFO        step   292 / 736   |Xerr|=0.1399
+2026-06-09 23:56:36  INFO        step   365 / 736   |Xerr|=0.1379
+2026-06-09 23:56:36  INFO        step   438 / 736   |Xerr|=0.1492
+2026-06-09 23:56:36  INFO        step   511 / 736   |Xerr|=0.1984
+2026-06-09 23:56:37  INFO        step   584 / 736   |Xerr|=0.2227
+2026-06-09 23:56:37  INFO        step   657 / 736   |Xerr|=0.2078
+2026-06-09 23:56:37  INFO        step   730 / 736   |Xerr|=0.2078
+2026-06-09 23:56:37  INFO      Control loop complete.  Final |Xerr| = 0.2078
+2026-06-09 23:56:37  INFO      Robot config CSV → capstone_testB_trajectory.csv  (737 rows)
+2026-06-09 23:56:37  INFO      Xerr CSV         → capstone_testB_Xerr.csv  (736 rows)
+2026-06-09 23:56:37  INFO      
+2026-06-09 23:56:37  INFO      --- Test C: PI feedback (Kp=2·I), perturbed start ---
+2026-06-09 23:56:37  INFO      Using pre-built trajectory (737 rows).
+2026-06-09 23:56:37  INFO      Initial Xerr (actual vs reference): [ 0.0985  0.     -0.017  -0.0178 -0.1336 -0.1034]  |Xerr|=0.1971
+2026-06-09 23:56:37  INFO      Reference trajectory: 737 configurations  (7.36 s total)
+2026-06-09 23:56:37  INFO      Starting control loop: 736 iterations …
+2026-06-09 23:56:37  INFO        step    73 / 736   |Xerr|=0.1998
+2026-06-09 23:56:38  INFO        step   146 / 736   |Xerr|=0.1947
+2026-06-09 23:56:38  INFO        step   219 / 736   |Xerr|=0.1399
+2026-06-09 23:56:38  INFO        step   292 / 736   |Xerr|=0.1399
+2026-06-09 23:56:38  INFO        step   365 / 736   |Xerr|=0.1379
+2026-06-09 23:56:39  INFO        step   438 / 736   |Xerr|=0.1492
+2026-06-09 23:56:39  INFO        step   511 / 736   |Xerr|=0.1984
+2026-06-09 23:56:39  INFO        step   584 / 736   |Xerr|=0.2227
+2026-06-09 23:56:39  INFO        step   657 / 736   |Xerr|=0.2078
+2026-06-09 23:56:40  INFO        step   730 / 736   |Xerr|=0.2078
+2026-06-09 23:56:40  INFO      Control loop complete.  Final |Xerr| = 0.2078
+2026-06-09 23:56:40  INFO      Robot config CSV → capstone_testC_trajectory.csv  (737 rows)
+2026-06-09 23:56:40  INFO      Xerr CSV         → capstone_testC_Xerr.csv  (736 rows)
+2026-06-09 23:56:40  INFO      
+2026-06-09 23:56:40  INFO      All three tests complete.  Load the CSV files into
+2026-06-09 23:56:40  INFO      CoppeliaSim Scene 6 and compare the animations.

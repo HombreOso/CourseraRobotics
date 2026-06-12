@@ -1,0 +1,10 @@
+2026-06-08 12:51:46  INFO      Log file: C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-06-04_Capstone_Project\milestone_3_2026-06-08_12-51-46.log
+2026-06-08 12:51:46  INFO      === Milestone 3 – Feedback Control (sanity test) ===
+2026-06-08 12:51:46  DEBUG     Xerr=[0. 0. 0. 0. 0. 0.]  Vd=[0. 0. 0. 1. 0. 0.]  V=[0. 0. 0. 1. 0. 0.]  controls=[ 2.7823e-01  2.7823e-01  2.7823e-01  2.7823e-01 -3.2965e-15 -3.4754e+00
+  1.5620e-01  3.3192e+00  2.1363e-15]
+2026-06-08 12:51:46  INFO      Test A (perfect tracking):  Xerr=[0. 0. 0. 0. 0. 0.] (expect ~0)
+2026-06-08 12:51:46  INFO                                  V   =[0. 0. 0. 1. 0. 0.]
+2026-06-08 12:51:46  DEBUG     Xerr=[0.  0.  0.1 0.  0.  0. ]  Vd=[0. 0. 0. 0. 0. 0.]  V=[0.     0.     0.5001 0.     0.     0.    ]  controls=[ 1.1165e-01 -1.1165e-01  5.0327e-02 -5.0327e-02  1.3941e-01  3.2609e-18
+  1.3372e-16 -1.8529e-16  3.6447e-01]
+2026-06-08 12:51:46  INFO      Test B (0.1 rad z-error):   Xerr=[0.  0.  0.1 0.  0.  0. ] (expect non-zero ω_z)
+2026-06-08 12:51:46  INFO                                  V   =[0.     0.     0.5001 0.     0.     0.    ]

@@ -1,0 +1,41 @@
+2026-06-09 23:14:04  INFO      Log file: C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-06-04_Capstone_Project\capstone_2026-06-09_23-14-04.log
+2026-06-09 23:14:04  INFO      ============================================================
+2026-06-09 23:14:04  INFO      Capstone Full Program – youBot Mobile Manipulation
+2026-06-09 23:14:04  INFO      ============================================================
+2026-06-09 23:14:04  INFO      build_trajectory: T_se_initial from FK:
+[[ 0.17    0.      0.9854  0.3868]
+ [ 0.      1.      0.      0.    ]
+ [-0.9854  0.      0.17    0.5702]
+ [ 0.      0.      0.      1.    ]]
+2026-06-09 23:14:04  INFO      
+2026-06-09 23:14:04  INFO      --- Test A: feedforward only, perfect start ---
+2026-06-09 23:14:04  INFO      Using pre-built trajectory (662 rows).
+2026-06-09 23:14:04  INFO      Initial Xerr (actual vs reference): [ 0.0000e+00  0.0000e+00  0.0000e+00 -5.5511e-17  0.0000e+00  5.5511e-17]  |Xerr|=0.0000
+2026-06-09 23:14:04  INFO      Reference trajectory: 662 configurations  (6.61 s total)
+2026-06-09 23:14:04  INFO      Starting control loop: 661 iterations …
+2026-06-09 23:14:04  INFO        step    66 / 661   |Xerr|=0.1015
+2026-06-09 23:14:04  INFO        step   132 / 661   |Xerr|=0.1041
+2026-06-09 23:14:05  INFO        step   198 / 661   |Xerr|=0.3411
+2026-06-09 23:14:05  INFO        step   264 / 661   |Xerr|=0.0522
+2026-06-09 23:14:05  INFO        step   330 / 661   |Xerr|=0.0713
+2026-06-09 23:14:05  INFO        step   396 / 661   |Xerr|=1.4655
+2026-06-09 23:14:06  INFO        step   462 / 661   |Xerr|=4.6762
+2026-06-09 23:14:06  INFO        step   528 / 661   |Xerr|=25.9384
+2026-06-09 23:14:06  INFO        step   594 / 661   |Xerr|=4.4542
+2026-06-09 23:14:06  INFO        step   660 / 661   |Xerr|=4.4563
+2026-06-09 23:14:06  INFO      Control loop complete.  Final |Xerr| = 4.4563
+2026-06-09 23:14:06  INFO      Robot config CSV → capstone_testA_trajectory.csv  (662 rows)
+2026-06-09 23:14:06  INFO      Xerr CSV         → capstone_testA_Xerr.csv  (661 rows)
+2026-06-09 23:14:06  INFO      
+2026-06-09 23:14:06  INFO      --- Test B: feedforward only, perturbed start ---
+2026-06-09 23:14:06  INFO      Using pre-built trajectory (662 rows).
+2026-06-09 23:14:06  INFO      Initial Xerr (actual vs reference): [ 0.0985  0.     -0.017  -0.0178 -0.1336 -0.1034]  |Xerr|=0.1971
+2026-06-09 23:14:06  INFO      Reference trajectory: 662 configurations  (6.61 s total)
+2026-06-09 23:14:06  INFO      Starting control loop: 661 iterations …
+2026-06-09 23:14:06  INFO        step    66 / 661   |Xerr|=0.2016
+2026-06-09 23:14:07  INFO        step   132 / 661   |Xerr|=0.1997
+2026-06-09 23:14:07  INFO        step   198 / 661   |Xerr|=0.3787
+2026-06-09 23:14:07  INFO        step   264 / 661   |Xerr|=0.1425
+2026-06-09 23:14:07  INFO        step   330 / 661   |Xerr|=0.1363
+2026-06-09 23:14:07  INFO        step   396 / 661   |Xerr|=1.5720
+2026-06-09 23:14:08  INFO        step   462 / 661   |Xerr|=5.0918

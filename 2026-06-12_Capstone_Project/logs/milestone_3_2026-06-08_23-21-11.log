@@ -1,0 +1,40 @@
+2026-06-08 23:21:11  INFO      Log file: C:\Users\admin\Documents\Robotics\Code\CourseraRobotics\2026-06-04_Capstone_Project\milestone_3_2026-06-08_23-21-11.log
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.      1.7086  0.     22.1945  0.      7.5169]  controls=[ 4.7958e+03  4.7958e+03  4.7958e+03  4.7958e+03  5.3863e-13  7.5419e+02
+  0.0000e+00 -7.5590e+02  1.3174e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0. 0. 0. 0. 0. 0.]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.  0.  0. 20.  0. 10.]  controls=[ 4.3405e+03  4.3405e+03  4.3405e+03  4.3405e+03  4.8761e-13  6.7148e+02
+  0.0000e+00 -6.7148e+02  1.1226e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.    0.    0.   21.4   0.    6.45]  controls=[ 4.7191e+03  4.7191e+03  4.7191e+03  4.7191e+03  5.2988e-13  7.4542e+02
+  0.0000e+00 -7.4542e+02  1.1789e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.      0.1709  0.     21.4795  0.      6.5567]  controls=[ 4.7268e+03  4.7268e+03  4.7268e+03  4.7268e+03  5.3075e-13  7.4629e+02
+  0.0000e+00 -7.4646e+02  1.1927e-15]
+2026-06-08 23:21:11  DEBUG     Joint limit violation predicted for joints [2] — zeroing Je columns and recomputing.
+2026-06-08 23:21:11  DEBUG     Xerr=[0.     0.1709 0.     0.0795 0.     0.1067]  Vd=[ 0.  0.  0. 20.  0. 10.]  V=[ 0.      0.1709  0.     21.4795  0.      6.5567]  controls=[ 4.7268e+03  4.7268e+03  4.7268e+03  4.7268e+03  5.3075e-13  7.4629e+02
+  0.0000e+00 -7.4646e+02  1.1927e-15]

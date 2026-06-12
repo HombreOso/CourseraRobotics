@@ -1,0 +1,814 @@
+"""
+Milestone 3 – Feedforward + PI Feedback Control
+=================================================
+
+PURPOSE — what this module does and why
+-----------------------------------------
+The reference trajectory (Milestone 2) is a pre-planned sequence of
+end-effector poses T_se(t).  It describes WHERE the gripper should be at
+every instant, but it says nothing about HOW to actuate the wheels and arm
+joints to get there.
+
+This module closes the loop:
+
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  Reference trajectory                                            │
+    │  T_se_d(t), T_se_d_next(t)   ───────────────────────────────►  │
+    │                                    FeedbackControl              │
+    │  Current actual pose              (this module)                 │
+    │  T_se  ──────────────────────────────────────────────────────►  │
+    │                                         │                       │
+    │                                         ▼                       │
+    │                                   controls (9)                  │
+    │                              [u1,u2,u3,u4, θ̇1…θ̇5]             │
+    │                                         │                       │
+    │                                         ▼                       │
+    │                                    NextState                    │
+    │                               (Milestone 1 simulator)           │
+    │                                         │                       │
+    │                                         ▼                       │
+    │                              new robot state (13)               │
+    │                         [φ,x,y, J1…J5, W1…W4, grip] ──────────►(loop)
+    └──────────────────────────────────────────────────────────────────┘
+
+IS THE ROBOT MOVED BY FEEDFORWARD OR FEEDBACK?
+-----------------------------------------------
+Both terms together move the robot — they are added into a single
+commanded twist V, which then drives the actuators:
+
+  FEEDFORWARD TERM  [Ad_{X⁻¹Xd}] Vd
+  ─────────────────────────────────
+  Vd = (1/Δt) log(Xd⁻¹ Xd_next)  is the instantaneous screw velocity
+  that the reference trajectory prescribes.  If the robot were perfect
+  (exact model, no slip, no integration error), this term alone would
+  keep the end-effector on the planned path forever.
+  The Adjoint mapping re-expresses Vd from the reference frame {Xd}
+  into the actual current frame {X}, because the Jacobian maps speeds
+  into velocities expressed in {e} = {X}, not in {Xd}.
+
+  FEEDBACK TERM  Kp·Xerr + Ki·∫Xerr dt
+  ──────────────────────────────────────
+  Xerr = log(X⁻¹ Xd) is the "gap" twist that, if applied for one unit
+  of time, would take the actual pose X exactly to the reference Xd.
+  The PI feedback drives this gap to zero.
+  Without this term the robot would follow the path approximately but
+  errors would grow unboundedly over time.
+
+HOW DO ERRORS ARISE?
+---------------------
+The Euler integration in NextState introduces a small error every step:
+
+    new_q  ≈  q + Vb·Δt        (first-order; exact only as Δt → 0)
+
+Over hundreds of steps these accumulate.  Additional sources:
+
+  • The mecanum wheel model assumes pure rolling — any slip is unmodelled.
+  • The Jacobian pseudoinverse is only the minimum-norm first-order
+    approximation; it does not account for nonlinearity between steps.
+  • Near arm singularities the Jacobian loses rank and the pseudoinverse
+    amplifies noise into very large joint speeds, causing overshoot.
+  • Floating-point rounding in the matrix exponential/logarithm.
+
+CONTROL LAW (Modern Robotics Eq. 11.16 / 13.37)
+-------------------------------------------------
+    V(t) = [Ad_{X⁻¹ Xd}] Vd(t)  +  Kp · Xerr(t)  +  Ki · ∫Xerr dt
+
+where
+    X        = T_se            current actual end-effector pose in {s}
+    Xd       = T_se_d          current reference pose in {s}
+    Xd_next  = T_se_d_next     reference pose one Δt later in {s}
+    Xerr     = se3ToVec(log(X⁻¹ Xd))           6-vector error twist
+    Vd       = (1/Δt) se3ToVec(log(Xd⁻¹ Xd_next))  feedforward twist
+    V        = commanded end-effector twist expressed in {e}
+
+CONVERTING THE TWIST TO ACTUATOR SPEEDS
+-----------------------------------------
+    [u; θ̇] = Je(θ)⁺ · V          (9-vector, pseudoinverse solution)
+
+Je (6×9) is the mobile-manipulator Jacobian:
+
+    Je = [ J_base (6×4)  |  J_arm (6×5) ]
+
+    J_base = Ad_{T_0e⁻¹ T_b0⁻¹} · F6
+      Expresses the chassis velocity contribution in the end-effector
+      frame.  F6 maps 4 wheel speeds to a 6D body twist of the chassis;
+      the Adjoint then re-expresses that twist in {e}.
+
+    J_arm = JacobianBody(Blist, θ)
+      Body Jacobian of the 5-DOF arm: maps joint speeds θ̇ to a 6D
+      end-effector twist in {e}.
+
+The pseudoinverse Je⁺ gives the minimum-norm solution for (u, θ̇) that
+produces the desired V.  This means wheel and joint speeds are shared
+optimally — the arm is used where it has more mechanical advantage, and
+the base supplements where the arm would be near-singular.
+"""
+
+import csv
+import logging
+import numpy as np
+import modern_robotics as mr
+from datetime import datetime
+from pathlib import Path
+
+from configurations import T_b0, M_0e, Blist, F6 as _F6
+
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+def _build_logger(name: str = "milestone_3") -> logging.Logger:
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir  = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path  = log_dir / f"{name}_{timestamp}.log"
+
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter(
+        fmt="%(asctime)s  %(levelname)-8s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    fh = logging.FileHandler(log_path, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(fmt)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(fmt)
+
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    logger.info("Log file: %s", log_path)
+    return logger
+
+
+logger = _build_logger()
+
+# #region agent log
+import json as _json, time as _time
+_DBG_PATH = r"c:\Users\admin\Documents\Robotics\Code\CourseraRobotics\debug-84c695.log"
+_DBG_COUNT = [0]
+def _dbg(location, message, data, hypothesis):
+    if _DBG_COUNT[0] >= 400:
+        return
+    _DBG_COUNT[0] += 1
+    try:
+        with open(_DBG_PATH, "a", encoding="utf-8") as _f:
+            _f.write(_json.dumps({"sessionId": "84c695", "location": location,
+                                  "message": message, "data": data,
+                                  "hypothesisId": hypothesis,
+                                  "timestamp": int(_time.time() * 1000)}) + "\n")
+    except OSError:
+        pass
+# #endregion
+
+
+# ---------------------------------------------------------------------------
+# Joint limits  (avoid self-collisions and singularities)
+# ---------------------------------------------------------------------------
+# Physical background
+# -------------------
+# The youBot arm has 5 revolute joints, each with a mechanical range of
+# travel.  Driving a joint past its physical stop is impossible on the
+# real robot, and certain extreme angles fold the links into the mobile
+# base (self-collision).  We therefore clamp each joint to the KUKA
+# youBot's published mechanical joint limits.
+#
+# IMPORTANT — initial configuration must satisfy these limits.
+# The assignment warns: if the robot's starting joint angles already lie
+# outside the limits, the enforcement logic freezes those joints (their
+# Je column is zeroed) so they can NEVER move.  The arm then loses a
+# degree of freedom and the mobile base over-drives to compensate,
+# producing huge / mismatched wheel rotations.  The standard initial
+# arm config (J3 = +0.2, J4 = -1.6) lies comfortably inside the limits
+# below.
+#
+# Enforcement strategy (assignment specification)
+# -----------------------------------------------
+# After computing the initial controls with pinv(Je):
+#   1. Predict the next joint angles:  θ_new = θ + θ̇·Δt
+#   2. Find joints where θ_new would violate a limit.
+#   3. Zero the Je COLUMNS corresponding to those joints.
+#      Zeroing column i says "joint i contributes nothing to V",
+#      so the pseudoinverse will assign it zero speed.
+#   4. Recompute controls = pinv(Je_modified) @ V.
+#
+# This is the simplest safe strategy.  More sophisticated approaches
+# (e.g. gradient projection, null-space control) can allow a joint to
+# back away from a limit while still achieving the end-effector motion.
+
+# (lower_rad, upper_rad) for joints 1–5  (index 0–4)
+# Values are the KUKA youBot's mechanical joint limits.
+JOINT_LIMITS: list[tuple[float, float]] = [
+    (-2.932,  2.932),   # J1
+    (-1.117,  1.553),   # J2
+    (-2.635,  2.548),   # J3  (allows the standard +0.2 start)
+    (-1.780,  1.780),   # J4  (allows the standard -1.6 start)
+    (-2.923,  2.923),   # J5
+]
+
+
+def testJointLimits(theta_list: np.ndarray) -> list[int]:
+    """
+    Return the 0-indexed list of arm joints whose angles violate the
+    configured limits.
+
+    Parameters
+    ----------
+    theta_list : (5,) array of current arm joint angles [J1…J5] (rad)
+
+    Returns
+    -------
+    violated : list[int]  — 0-indexed joint indices that are outside limits.
+               Empty list means all joints are within bounds.
+
+    Examples
+    --------
+    >>> testJointLimits(np.array([0, 0, 0.2, -1.6, 0]))
+    []    # standard start: all joints within limits
+    >>> testJointLimits(np.array([0, 0, 3.0, -1.6, 0]))
+    [2]   # J3 (index 2) exceeds its upper limit 2.548
+    """
+    violated = []
+    for i, (theta, (lo, hi)) in enumerate(zip(theta_list, JOINT_LIMITS)):
+        if theta < lo or theta > hi:
+            violated.append(i)
+    return violated
+
+
+# ---------------------------------------------------------------------------
+# Mobile-manipulator Jacobian
+# ---------------------------------------------------------------------------
+
+def _mobile_manipulator_jacobian(theta_list: np.ndarray) -> np.ndarray:
+    """
+    Compute the 6×9 mobile-manipulator Jacobian Je(θ).
+
+    PHYSICAL MEANING
+    ----------------
+    Je relates the 9 actuator speeds (4 wheels + 5 joints) to the
+    resulting 6D end-effector twist in the body frame {e}:
+
+        V_e = Je(θ) · [u; θ̇]
+
+    It has two column blocks:
+
+    J_base (columns 0–3)
+        Each column is the end-effector twist produced by spinning one
+        wheel at unit speed while all other actuators are still.
+        F6 first converts wheel speed to a 6D chassis body twist (in
+        {b}); the Adjoint Ad_{T_0e⁻¹ T_b0⁻¹} then changes the reference
+        frame from {b} all the way to {e}:
+
+            frame chain:  {e} ← T_0e⁻¹ ← {0} ← T_b0⁻¹ ← {b}
+
+    J_arm (columns 4–8)
+        Standard body Jacobian of the 5-DOF arm.  Column i is the
+        end-effector twist produced by rotating joint i at unit speed
+        with all other joints fixed (screw axis Bi re-expressed for the
+        current joint configuration via the adjoint of the product of
+        exponentials).
+
+    WHY THE PSEUDOINVERSE?
+    ----------------------
+    Je is 6×9 (more columns than rows) so infinitely many (u, θ̇)
+    produce the same V.  np.linalg.pinv gives the minimum-2-norm
+    solution, distributing effort across wheels and joints to avoid
+    unnecessarily large individual speeds.
+
+    Parameters
+    ----------
+    theta_list : (5,) arm joint angles [J1…J5] (rad)
+
+    Returns
+    -------
+    Je : ndarray (6, 9)
+    """
+    # Forward kinematics of arm: {0} → {e} for current joint angles
+    T_0e = mr.FKinBody(M_0e, Blist, theta_list)
+
+    # Re-express chassis contribution in end-effector frame {e}
+    # Ad_{T_0e⁻¹ T_b0⁻¹}: frame chain e ← 0 ← b
+    Ad_base = mr.Adjoint(mr.TransInv(T_0e) @ mr.TransInv(T_b0))  # 6×6
+    J_base  = Ad_base @ _F6()                                      # 6×4
+
+    # Body Jacobian of the arm (already in {e})
+    J_arm = mr.JacobianBody(Blist, theta_list)                     # 6×5
+
+    return np.hstack([J_base, J_arm])                              # 6×9
+
+
+# ---------------------------------------------------------------------------
+# Nonlinear chassis SE(2) control  (holonomic adaptation of MR eq. 13.30/13.31)
+# ---------------------------------------------------------------------------
+
+def _desired_chassis_pose(
+    T_se_d:     np.ndarray,
+    theta_list: np.ndarray,
+) -> tuple[float, float, float]:
+    """
+    Extract the desired chassis pose (phi_d, x_d, y_d) from the reference EE
+    pose T_se_d and the current arm joint angles.
+
+    The kinematics chain is:
+        T_se = T_sb(phi,x,y) @ T_b0 @ T_0e(theta)
+
+    Solving for T_sb_d:
+        T_sb_d = T_se_d @ inv(T_b0 @ T_0e(theta))
+
+    This gives the chassis body frame pose that would place the EE at T_se_d
+    with the arm in its current configuration.  It is an approximation when the
+    arm is also changing, but is exact when only the chassis has initial error.
+
+    Returns
+    -------
+    phi_d : float  desired chassis yaw  (rad)
+    x_d   : float  desired chassis x    (m)
+    y_d   : float  desired chassis y    (m)
+    """
+    T_0e   = mr.FKinBody(M_0e, Blist, theta_list)
+    T_sb_d = T_se_d @ mr.TransInv(T_b0 @ T_0e)
+    phi_d  = float(np.arctan2(T_sb_d[1, 0], T_sb_d[0, 0]))
+    x_d    = float(T_sb_d[0, 3])
+    y_d    = float(T_sb_d[1, 3])
+    return phi_d, x_d, y_d
+
+
+def nonlinear_chassis_se2_correction(
+    phi:   float, x:   float, y:   float,
+    phi_d: float, x_d: float, y_d: float,
+    k_phi: float = 1.0,
+    k_x:   float = 1.0,
+    k_y:   float = 1.0,
+) -> np.ndarray:
+    """
+    Holonomic adaptation of Modern Robotics eq. 13.30/13.31.
+
+    WHY NOT 13.31 DIRECTLY?
+    -----------------------
+    Eq. 13.31 is derived for a *unicycle* (nonholonomic diff-drive) with only
+    two controls (v, omega).  The YouBot's mecanum chassis is *holonomic*: it
+    has three independently controllable chassis DOF (v_bx, v_by, omega_bz).
+    The tan(phi_e)/cos(phi_e) singularity in 13.31 arises precisely because a
+    unicycle cannot move sideways — it must turn to face its target first.
+    A holonomic chassis has no such constraint.
+
+    ADAPTED SE(2) NONLINEAR CONTROL
+    --------------------------------
+    Step 1 — Error in reference frame {d}  (same as MR eq. 13.30)
+
+        phi_e =  phi  - phi_d
+        [x_e ]   [ cos(phi_d)   sin(phi_d) ] [x  - x_d]
+        [y_e ] = [-sin(phi_d)   cos(phi_d) ] [y  - y_d]
+
+        Expressing position error in {d} ensures the feedback pushes the
+        chassis along the *reference heading* rather than the world axes.
+        This is the key correction compared to naive proportional control
+        on (phi-phi_d, x-x_d, y-y_d) in the world frame.
+
+    Step 2 — Holonomic correction twist (3 DOF, no singularity)
+
+        Compute the desired correction in frame {d}:
+            delta_omega_d = -k_phi * phi_e
+            delta_vx_d    = -k_x   * x_e
+            delta_vy_d    = -k_y   * y_e
+
+        Rotate from {d} back to chassis body frame {b}:
+            [delta_vx_b]   [cos(phi_e)  -sin(phi_e)] [delta_vx_d]
+            [delta_vy_b] = [sin(phi_e)   cos(phi_e)] [delta_vy_d]
+
+    Step 3 — Return as 6D body twist in frame {b}
+        [0, 0, omega_bz, v_bx, v_by, 0]
+
+    Parameters
+    ----------
+    phi, x, y        : current chassis state
+    phi_d, x_d, y_d  : desired chassis state (from _desired_chassis_pose)
+    k_phi, k_x, k_y  : positive feedback gains
+
+    Returns
+    -------
+    V_chassis_b : ndarray (6,)  chassis body twist [0,0,ω,v_x,v_y,0] in {b}
+    """
+    # Step 1 — SE(2) error in reference frame {d}
+    phi_e = phi - phi_d
+    cd, sd = np.cos(phi_d), np.sin(phi_d)
+    x_e =  cd * (x - x_d) + sd * (y - y_d)
+    y_e = -sd * (x - x_d) + cd * (y - y_d)
+
+    # Step 2 — correction in {d} frame, rotate to body frame {b}
+    delta_omega = -k_phi * phi_e
+    dvx_d       = -k_x  * x_e
+    dvy_d       = -k_y  * y_e
+
+    ce, se = np.cos(phi_e), np.sin(phi_e)
+    v_bx =  ce * dvx_d - se * dvy_d
+    v_by =  se * dvx_d + ce * dvy_d
+
+    # Step 3 — 6D body twist in {b}: [omega_bx, omega_by, omega_bz, v_bx, v_by, v_bz]
+    return np.array([0.0, 0.0, delta_omega, v_bx, v_by, 0.0])
+
+
+# ---------------------------------------------------------------------------
+# Core control law
+# ---------------------------------------------------------------------------
+
+def FeedbackControl(
+    X:                    np.ndarray,
+    X_d:                  np.ndarray,
+    X_d_next:             np.ndarray,
+    K_p:                  np.ndarray,
+    K_i:                  np.ndarray,
+    dt:                   float,
+    theta_list:           np.ndarray,
+    X_err_integral:       np.ndarray,
+    enforce_joint_limits: bool = True,
+    robot_config:         np.ndarray | None = None,
+    nonlinear_chassis:    bool = False,
+    k_nl_phi:             float = 1.0,
+    k_nl_x:               float = 1.0,
+    k_nl_y:               float = 1.0,
+    ff_error_scale:       float = 0.0,
+    lambda_damping:       float = 0.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute the commanded twist and actuator speeds for one control timestep.
+
+    PHYSICS
+    ---------------------
+    Step 1 — Error twist Xerr
+        The SE(3) matrix  X⁻¹ Xd  is the pose of the reference frame
+        {Xd} expressed in the actual current frame {X}.  Taking its
+        matrix logarithm gives the se(3) element (a 4×4 skew-symmetric
+        matrix) whose associated screw motion, applied for one unit of
+        time, would take X exactly to Xd.  se3ToVec extracts the 6-vector
+        [ω_x, ω_y, ω_z, v_x, v_y, v_z] from that matrix.
+
+        Xerr = se3ToVec( log( X⁻¹ Xd ) )
+
+        A zero Xerr means perfect tracking.  A large Xerr means the robot
+        has drifted far from the reference path.
+
+    Step 2 — Integral update
+        The integral accumulates Xerr·Δt at every call, giving a running
+        estimate of ∫Xerr dt.  This is the "I" part of PI control.
+        It corrects steady-state errors: if a constant disturbance (e.g.
+        a stuck joint) keeps Xerr non-zero, the integral term grows until
+        its contribution to V overwhelms the disturbance.
+
+    Step 3 — Feedforward twist Vd
+        Xd⁻¹ Xd_next is the relative motion the reference trajectory
+        wants to happen in the next Δt seconds, expressed in the current
+        reference frame {Xd}.  Dividing by Δt converts finite rotation/
+        translation into an instantaneous twist (first-order approximation
+        of the matrix logarithm velocity):
+
+        Vd = (1/Δt) se3ToVec( log( Xd⁻¹ Xd_next ) )
+
+        This twist lives in frame {Xd}.  It tells the robot what motion
+        the path demands, independent of any error.
+
+    Step 4 — Control law
+        The Adjoint Ad_{X⁻¹ Xd} re-expresses Vd from {Xd} into {X} (the
+        actual current end-effector frame).  This is necessary because the
+        Jacobian Je maps actuator speeds to twists expressed in {X = e},
+        not in {Xd}.
+
+        The full commanded twist is:
+            V = Ad_{X⁻¹ Xd} · Vd   (feedforward: follow the plan)
+              + Kp · Xerr            (proportional: correct current gap)
+              + Ki · ∫Xerr dt        (integral: eliminate steady error)
+
+        Kp and Ki are typically diagonal 6×6 matrices.  Large diagonal
+        values give faster error correction but risk oscillation and large
+        actuator speeds near singularities.
+
+    Step 5 — Map twist to actuator speeds
+        The 6D commanded twist V is distributed across 9 actuators via
+        the pseudoinverse of the 6×9 mobile-manipulator Jacobian Je:
+
+            [u; θ̇] = Je(θ)⁺ · V
+
+        This minimum-norm solution keeps all speeds as small as possible.
+        When Je is near-singular (arm near a singularity or bad posture),
+        the pseudoinverse amplifies V into very large speeds — this is a
+        physical warning that the robot configuration needs to be improved.
+
+    Parameters
+    ----------
+    X              : (4,4) SE(3) – current actual end-effector pose T_se
+    X_d            : (4,4) SE(3) – current reference pose T_se_d
+    X_d_next       : (4,4) SE(3) – reference pose at next timestep T_se_d_next
+    K_p            : (6,6) proportional gain matrix (diagonal recommended)
+    K_i            : (6,6) integral gain matrix (diagonal recommended)
+    dt                   : float – timestep Δt (s), must match trajectory resolution
+    theta_list           : (5,) current arm joint angles [J1…J5] (rad)
+    X_err_integral       : (6,) running integral of Xerr from all previous steps
+    enforce_joint_limits : bool – if True (default), zero out Je columns for joints
+                           predicted to violate JOINT_LIMITS after this step, then
+                           recompute the pseudoinverse.  Set False to disable.
+    robot_config         : (13,) full robot state [phi,x,y,J1..J5,W1..W4,grip].
+                           Required when nonlinear_chassis=True.
+    nonlinear_chassis    : bool – if True, add a holonomic SE(2) nonlinear chassis
+                           correction (adapted from MR eq. 13.30/13.31) that
+                           expresses chassis position error in the reference frame
+                           {d} before applying feedback.  This prevents the chassis
+                           from moving in the wrong direction when the heading error
+                           phi_e is large.  Requires robot_config to be provided.
+    k_nl_phi, k_nl_x, k_nl_y : gains for the nonlinear chassis correction.
+    ff_error_scale       : float – when > 0, the Adjoint-corrected feedforward
+                           Ad_{X⁻¹Xd} V_d is blended toward plain V_d as
+                           |Xerr| grows:
+                               alpha = 1 / (1 + ff_error_scale * |Xerr|)
+                               V_ff  = alpha * (Ad @ V_d) + (1-alpha) * V_d
+                           Disabled by default (set 0); prefer lambda_damping.
+    lambda_damping       : float – damping factor λ for the damped least-squares
+                           pseudoinverse (MR textbook, Chapter 6):
+                               J⁺ = Jᵀ (J Jᵀ + λ² I)⁻¹
+                           λ=0 (default) uses the exact Moore-Penrose pseudoinverse.
+                           Use λ≈0.05 to bound actuator speeds near arm
+                           singularities without affecting well-conditioned configs.
+
+    Returns
+    -------
+    V              : (6,) commanded end-effector twist in frame {e}
+    controls       : (9,) [u1,u2,u3,u4, θ̇1,…,θ̇5]  wheel + joint speeds
+    X_err          : (6,) current error twist (useful for logging / plotting)
+    X_err_integral : (6,) updated integral, pass back in on the next call
+    """
+
+    # ------------------------------------------------------------------
+    # Step 1: Error twist  Xerr = se3ToVec( log( X⁻¹ Xd ) )
+    #
+    # X⁻¹ Xd  ∈ SE(3): relative transform from actual pose to reference.
+    # MatrixLog6 maps it to its se(3) Lie-algebra element (skew matrix).
+    # se3ToVec extracts [ω; v] as a 6-vector.
+    # ------------------------------------------------------------------
+    X_err = mr.se3ToVec(mr.MatrixLog6(mr.TransInv(X) @ X_d))   # (6,)
+
+    # ------------------------------------------------------------------
+    # Step 2: Accumulate the integral  ∫Xerr dt  ≈  Σ Xerr·Δt
+    #
+    # The caller must pass the current integral in and use the returned
+    # updated value on the next call — state is owned by the caller.
+    # ------------------------------------------------------------------
+    X_err_integral = X_err_integral + X_err * dt                # (6,)
+
+    # ------------------------------------------------------------------
+    # Step 3: Feedforward reference twist  Vd = (1/Δt) log( Xd⁻¹ Xd_next )
+    #
+    # Xd⁻¹ Xd_next  is the relative motion of the reference frame in Δt.
+    # Scaling by 1/Δt converts the finite screw displacement into an
+    # instantaneous body twist in frame {Xd}.
+    # ------------------------------------------------------------------
+    V_d = (1.0 / dt) * mr.se3ToVec(
+        mr.MatrixLog6(mr.TransInv(X_d) @ X_d_next)
+    )                                                            # (6,)
+
+    # ------------------------------------------------------------------
+    # Step 4: Full PI + feedforward control law
+    #
+    # Ad_{X⁻¹ Xd}: re-expresses V_d from reference frame {Xd} into the
+    # actual end-effector frame {X}.  Without this mapping the feedforward
+    # would push in the wrong direction whenever X ≠ Xd.
+    # ------------------------------------------------------------------
+    Ad_X_inv_Xd = mr.Adjoint(mr.TransInv(X) @ X_d)             # 6×6
+
+    # Feedforward: optionally blend Adjoint-corrected V_d with plain V_d.
+    # When ff_error_scale > 0: alpha = 1/(1 + k*|Xerr|)
+    #   -> on-path (Xerr≈0): alpha≈1, full Adjoint correction (correct)
+    #   -> off-path (Xerr large): alpha decreases, suppresses p×ω amplification
+    # Default 0 disables blending; prefer lambda_damping to address singularities.
+    if ff_error_scale > 0.0:
+        _alpha = 1.0 / (1.0 + ff_error_scale * float(np.linalg.norm(X_err)))
+        V_ff   = _alpha * (Ad_X_inv_Xd @ V_d) + (1.0 - _alpha) * V_d
+    else:
+        V_ff = Ad_X_inv_Xd @ V_d
+
+    V = (V_ff                       # feedforward: follow the planned path
+         + K_p @ X_err              # proportional: shrink the current pose gap
+         + K_i @ X_err_integral)    # integral: eliminate persistent steady errors
+
+    # ------------------------------------------------------------------
+    # Optional: nonlinear chassis SE(2) correction
+    #
+    # The standard Se(3) feedback expresses chassis position error in the
+    # world frame, which can command the chassis in the wrong direction when
+    # the heading error phi_e is non-zero.
+    #
+    # The holonomic adaptation of MR eq. 13.30/13.31 re-expresses the chassis
+    # position error in the reference heading frame {d} FIRST, then rotates the
+    # correction back to the chassis body frame.  This ensures the robot drives
+    # along the reference direction rather than against it.
+    #
+    # The chassis correction is a 6D body twist in {b}.  It is re-expressed
+    # in {e} via the same Adjoint chain used for J_base, then added to V.
+    # ------------------------------------------------------------------
+    if nonlinear_chassis and robot_config is not None:
+        phi, cx, cy = float(robot_config[0]), float(robot_config[1]), float(robot_config[2])
+        phi_d, x_d, y_d = _desired_chassis_pose(X_d, theta_list)
+
+        V_chassis_b = nonlinear_chassis_se2_correction(
+            phi, cx, cy, phi_d, x_d, y_d,
+            k_phi=k_nl_phi, k_x=k_nl_x, k_y=k_nl_y,
+        )
+        # Transform chassis body twist from {b} to {e}
+        T_0e   = mr.FKinBody(M_0e, Blist, theta_list)
+        Ad_b2e = mr.Adjoint(mr.TransInv(T_0e) @ mr.TransInv(T_b0))  # 6×6
+        V_chassis_e = Ad_b2e @ V_chassis_b
+        V = V + V_chassis_e
+
+    # ------------------------------------------------------------------
+    # Step 5: Invert the Jacobian to get actuator speeds
+    #
+    # Je is 6×9 (underdetermined): many (u, θ̇) produce the same V.
+    # np.linalg.pinv gives the minimum-norm solution — the actuator
+    # speeds closest to zero that still achieve V exactly (in a least-
+    # squares sense when Je is numerically rank-deficient).
+    #
+    # Joint-limit enforcement (optional, enabled by default)
+    # -------------------------------------------------------
+    # After a first-pass pinv solution we predict where each joint will
+    # be after one timestep.  Any joint predicted to leave its allowed
+    # range has its Je column zeroed.  Zeroing column (4+i) tells the
+    # pseudoinverse "joint i is frozen — assign it zero speed and let
+    # the wheels/other joints compensate".  We then recompute pinv on
+    # the modified Je.
+    #
+    # Why zero the column rather than just clamping the speed?
+    #   Clamping θ̇_i after the fact changes the solution without
+    #   re-distributing the work — the other actuators still try to
+    #   produce the original V with one less degree of freedom, which
+    #   leads to end-effector errors.  Zeroing the column first lets
+    #   the pseudoinverse re-distribute effort to the remaining free
+    #   actuators so they still best-approximate V.
+    # ------------------------------------------------------------------
+    Je = _mobile_manipulator_jacobian(theta_list)               # 6×9
+
+    # ------------------------------------------------------------------
+    # Pseudoinverse helper (damped least-squares, MR Chapter 6)
+    #
+    # Exact (Moore-Penrose) pseudoinverse gains = 1/σ_i for each singular
+    # value.  When σ_i → 0 near an arm singularity the gain → ∞ and the
+    # commanded actuator speeds blow up (we measured 196 rad/s in Test A).
+    #
+    # Damped least-squares:
+    #     J⁺ = Jᵀ (J Jᵀ + λ² I)⁻¹
+    # replaces gain 1/σ with σ/(σ² + λ²).
+    #   • For σ >> λ: gain ≈ 1/σ  (no change near well-conditioned configs)
+    #   • For σ → 0:  gain → 1/(2λ) (bounded; no blow-up at singularities)
+    # λ = 0 → exact pseudoinverse (backward-compatible default).
+    # ------------------------------------------------------------------
+    def _pinv(J: np.ndarray) -> np.ndarray:
+        if lambda_damping <= 0.0:
+            return np.linalg.pinv(J)
+        m = J.shape[0]   # rows = 6 for Je
+        return J.T @ np.linalg.inv(J @ J.T + lambda_damping**2 * np.eye(m))
+
+    if enforce_joint_limits:
+        # Iterative enforcement (fixes two confirmed bugs):
+        #
+        # Fix 1 — direction-aware freezing:
+        #   Only freeze a joint if its commanded speed drives it FURTHER
+        #   out of range.  A joint that is past a limit but commanded to
+        #   move back toward the legal range must stay free, otherwise it
+        #   is trapped outside its limits forever.
+        #
+        # Fix 2 — re-check after every recompute:
+        #   Zeroing a column changes the pseudoinverse solution; the new
+        #   solution can itself violate limits for other joints (and can
+        #   blow up when the modified Jacobian is near-singular).  We
+        #   therefore loop: solve → freeze offending joints → re-solve,
+        #   until no joint is commanded to cross a limit.  The loop is
+        #   bounded by the 5 arm joints.
+        Je_work = Je.copy()
+        frozen: list[int] = []
+        for _pass in range(5):
+            controls   = _pinv(Je_work) @ V                      # (9,)
+            theta_next = theta_list + controls[4:9] * dt         # (5,)
+
+            to_freeze = []
+            for j in testJointLimits(theta_next):
+                if j in frozen:
+                    continue
+                lo, hi = JOINT_LIMITS[j]
+                spd = controls[4 + j]
+                # Freeze only when moving further out of range
+                if (theta_next[j] > hi and spd > 0) or (theta_next[j] < lo and spd < 0):
+                    to_freeze.append(j)
+
+            # #region agent log
+            _already_out = testJointLimits(theta_list)
+            if to_freeze or (_pass > 0 and float(np.max(np.abs(controls))) > 100.0):
+                _dbg("milestone_3_feedback_control.py:step5-iter",
+                     "enforcement iteration",
+                     {"pass": _pass, "frozen_so_far": frozen, "to_freeze": to_freeze,
+                      "already_out_at_entry": _already_out,
+                      "theta": [round(float(t), 4) for t in theta_list],
+                      "theta_next": [round(float(t), 4) for t in theta_next],
+                      "joint_speeds": [round(float(s), 2) for s in controls[4:9]],
+                      "max_abs_control": round(float(np.max(np.abs(controls))), 1)},
+                     "H1+H2-fix")
+            # #endregion
+
+            if not to_freeze:
+                break
+
+            logger.debug("Joint limit enforcement pass %d: freezing joints %s",
+                         _pass, to_freeze)
+            for j in to_freeze:
+                Je_work[:, 4 + j] = 0.0   # column 4+j = arm joint j (0-indexed)
+                frozen.append(j)
+    else:
+        controls = _pinv(Je) @ V                                  # (9,)
+
+    logger.debug(
+        "Xerr=%s  Vd=%s  V=%s  controls=%s",
+        np.array2string(X_err,    precision=4),
+        np.array2string(V_d,      precision=4),
+        np.array2string(V,        precision=4),
+        np.array2string(controls, precision=4),
+    )
+
+    return V, controls, X_err, X_err_integral
+
+
+# ---------------------------------------------------------------------------
+# CSV helper
+# ---------------------------------------------------------------------------
+
+def write_error_csv(
+    error_log: list[np.ndarray],
+    filepath:  str,
+) -> None:
+    """
+    Write the per-timestep 6-vector Xerr log to a CSV file.
+
+    Each row: [Xerr_1, Xerr_2, Xerr_3, Xerr_4, Xerr_5, Xerr_6]
+    Plotting this file over time shows how quickly the controller drives
+    the error to zero — the key performance metric for Milestone 3.
+    """
+    with open(filepath, "w", newline="") as f:
+        writer = csv.writer(f)
+        for row in error_log:
+            writer.writerow([f"{v:.6f}" for v in row])
+    logger.info("Error CSV written → %s  (%d rows)", filepath, len(error_log))
+
+
+# ---------------------------------------------------------------------------
+# Quick sanity test
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    logger.info("=== Milestone 3 – Feedback Control (sanity test) ===")
+
+    # ------------------------------------------------------------------
+    # Test A: Perfect tracking  (X = Xd)
+    # Expected: Xerr = 0, V = Vd only (feedforward drives the motion)
+    # ------------------------------------------------------------------
+    X_a      = np.eye(4)
+    X_d_a    = np.eye(4)
+    X_d_next_a = np.array([
+        [1, 0, 0, 0.01],
+        [0, 1, 0, 0   ],
+        [0, 0, 1, 0   ],
+        [0, 0, 0, 1   ],
+    ], dtype=float)
+
+    K_p = np.eye(6) * 2.0
+    K_i = np.eye(6) * 0.0
+    dt  = 0.01
+    theta_list = np.zeros(5)
+
+    V, controls, X_err, _ = FeedbackControl(
+        X_a, X_d_a, X_d_next_a, K_p, K_i, dt, theta_list, np.zeros(6)
+    )
+    logger.info("Test A (perfect tracking):  Xerr=%s (expect ~0)",
+                np.array2string(X_err, precision=4))
+    logger.info("                            V   =%s",
+                np.array2string(V, precision=4))
+
+    # ------------------------------------------------------------------
+    # Test B: Non-zero error  (Xd rotated 0.1 rad about z, X = I)
+    # Expected: Xerr has non-zero ω_z component; feedback corrects it
+    # ------------------------------------------------------------------
+    import math
+    c, s = math.cos(0.1), math.sin(0.1)
+    X_d_rot = np.array([
+        [ c, -s, 0, 0],
+        [ s,  c, 0, 0],
+        [ 0,  0, 1, 0],
+        [ 0,  0, 0, 1],
+    ], dtype=float)
+
+    V2, ctrl2, err2, _ = FeedbackControl(
+        np.eye(4), X_d_rot, X_d_rot,
+        np.eye(6) * 5.0, np.eye(6) * 0.1,
+        dt, theta_list, np.zeros(6)
+    )
+    logger.info("Test B (0.1 rad z-error):   Xerr=%s (expect non-zero ω_z)",
+                np.array2string(err2, precision=4))
+    logger.info("                            V   =%s",
+                np.array2string(V2, precision=4))
