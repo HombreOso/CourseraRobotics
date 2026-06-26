@@ -13,9 +13,17 @@ T_sc_initial = np.array([
 ], dtype=float)
 
 # Default goal pose: (x, y, z) = (0, -1, 0.025), rotated -π/2 about ẑ_s
+# T_sc_goal = np.array([
+#     [ 0, 1, 0,  0    ],
+#     [-1, 0, 0, -1    ],
+#     [ 0, 0, 1,  0.025],
+#     [ 0, 0, 0,  1    ],
+# ], dtype=float)
+
+# Custom goal pose: (x, y, z) = (0, 1.5, 0.025), rotated -π/2 about ẑ_s
 T_sc_goal = np.array([
     [ 0, 1, 0,  0    ],
-    [-1, 0, 0, -1    ],
+    [-1, 0, 0, 1.5    ],
     [ 0, 0, 1,  0.025],
     [ 0, 0, 0,  1    ],
 ], dtype=float)
